@@ -1,0 +1,34 @@
+Id;Name;Kurzbeschreibung;Vorbedingung;Modul;Type;Priorität;Status;Version;Regressionstest;Stichwort;Anforderung;Test Owner;Testdauer;Testumgebung;Testschritt-Nr.;Testschritt-Beschreibung;Erwartetes Ergebnis
+TF-201;TF_Katalog_Suche nach ISBN_Web_Regression;Suche im Katalog über die vollständige ISBN.;Der Katalog enthält mindestens 500 Medien.;Katalog;Manual;Medium;Freigegeben;1.2;x;Katalog;BIB-1101;M. Mustermann;20 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-201;;;;;;;;;;;;;;;2;Den Katalog öffnen;Die Suchmaske wird mit leerem Eingabefeld angezeigt
+TF-201;;;;;;;;;;;;;;;3;Die ISBN 978-3-16-148410-0 eingeben und bestätigen;Genau ein Treffer wird mit Titel, Autor und Standort angezeigt
+TF-201;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-202;TF_Katalog_Suche mit Platzhalter_Web_Regression;Titelsuche mit Platzhalter über mehrere Medien.;Der Katalog enthält mindestens 500 Medien.;Katalog;Manual;Medium;Freigegeben;1.1;x;Katalog;BIB-1101;M. Mustermann;15 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-202;;;;;;;;;;;;;;;2;Im Titelfeld Nordwind* eingeben und bestätigen;Alle Titel, die mit Nordwind beginnen, werden alphabetisch aufgelistet
+TF-202;;;;;;;;;;;;;;;3;Abmelden;Die Anmeldeseite wird angezeigt
+TF-203;TF_Katalog_Medium als vermisst kennzeichnen_Web_Regression;Ein Medium wird als vermisst markiert und aus der Ausleihe genommen.;Das Medium mit der Signatur K-4711 ist verfügbar.;Katalog;Manual;Low;Freigegeben;1.0;;Katalog;BIB-1101;E. Beispiel;15 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-203;;;;;;;;;;;;;;;2;Das Medium K-4711 öffnen und als vermisst kennzeichnen;Der Status wechselt auf Vermisst
+TF-203;;;;;;;;;;;;;;;3;Eine Ausleihe des Mediums versuchen;Die Ausleihe wird abgewiesen und die Meldung Medium ist vermisst wird angezeigt
+TF-203;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-204;TF_Ausleihe_Medium ausleihen_Web_Regression;Ausleihe eines verfügbaren Mediums an ein aktives Mitglied.;Das Mitglied 100234 ist aktiv und hat keine offenen Gebühren.;Ausleihe;Manual;High;Freigegeben;2.0;x;Ausleihe;BIB-1204;E. Beispiel;20 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-204;;;;;;;;;;;;;;;2;Den Mitgliedsausweis 100234 einlesen;Das Mitgliedskonto wird mit Name und Ausleihstand angezeigt
+TF-204;;;;;;;;;;;;;;;3;Das Medium K-4711 ausleihen;Die Ausleihe wird gebucht und ein Rückgabedatum in vier Wochen vergeben
+TF-204;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-205;TF_Ausleihe_Ausleihgrenze pro Mitglied_Web_Regression;Ab der Höchstzahl gleichzeitiger Ausleihen wird abgewiesen.;Das Mitglied 100234 hat bereits 9 Medien entliehen.;Ausleihe;Manual;High;Freigegeben;2.0;x;Ausleihe;BIB-1204;M. Mustermann;25 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-205;;;;;;;;;;;;;;;2;Ein zehntes Medium ausleihen;Die Ausleihe wird gebucht
+TF-205;;;;;;;;;;;;;;;3;Ein elftes Medium ausleihen;Die Ausleihe wird abgewiesen und die Meldung Ausleihgrenze erreicht wird angezeigt
+TF-205;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-206;TF_Mitglieder_Pflichtfeld Geburtsdatum_Web_Regression;Ein Mitgliedskonto ohne Geburtsdatum wird nicht gespeichert.;Die Mitgliederverwaltung ist geöffnet.;Mitglieder;Manual;High;Freigegeben;1.4;x;Mitglieder;BIB-1330;E. Beispiel;15 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-206;;;;;;;;;;;;;;;2;Ein neues Mitglied ohne Geburtsdatum anlegen;Das Feld ist leer und als Pflichtfeld markiert
+TF-206;;;;;;;;;;;;;;;3;Speichern auswählen;Das Konto wird nicht gespeichert und die Meldung Geburtsdatum ist ein Pflichtfeld wird angezeigt
+TF-206;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-207;TF_Ausleihe_Vom Katalog bis zur Rückgabe_Web_Volltest;End-to-End-Ablauf über Suche, Ausleihe, Verlängerung und Rückgabe.;Ein Mitarbeiterkonto und ein aktives Mitglied stehen zur Verfügung.;Ausleihe;Manual;High;Freigegeben;1.4;;E2E;BIB-1204;M. Mustermann;60 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-207;;;;;;;;;;;;;;;2;Das Medium K-4711 im Katalog suchen;Genau ein Treffer wird mit Status Verfügbar angezeigt
+TF-207;;;;;;;;;;;;;;;3;Das Medium an das Mitglied 100234 ausleihen;Die Ausleihe wird gebucht und ein Rückgabedatum vergeben
+TF-207;;;;;;;;;;;;;;;4;Die Ausleihe einmal verlängern;Das Rückgabedatum verschiebt sich um zwei Wochen
+TF-207;;;;;;;;;;;;;;;5;Das Medium zurücknehmen;Der Status wechselt auf Verfügbar und das Mitgliedskonto ist ausgeglichen
+TF-207;;;;;;;;;;;;;;;6;Abmelden;Die Anmeldeseite wird angezeigt
+TF-208;TF_Mahnwesen_Gebühr bei verspäteter Rückgabe_Web_Volltest;End-to-End-Ablauf für die Berechnung einer Mahngebühr.;Für das Mitglied 100234 ist eine Ausleihe überfällig.;Mahnwesen;Manual;Medium;Freigegeben;1.1;x;Mahnwesen;BIB-1330;E. Beispiel;40 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-208;;;;;;;;;;;;;;;2;Das überfällige Medium zurücknehmen;Eine Mahngebühr wird berechnet und dem Mitgliedskonto belastet
+TF-208;;;;;;;;;;;;;;;3;Die Gebühr als bezahlt buchen;Das Mitgliedskonto ist ausgeglichen und ein Beleg wird erzeugt
+TF-208;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt

@@ -1,0 +1,13 @@
+Issue key,Issue Type,Summary,Description,Custom field (Acceptance Criteria),Priority,Status,Components,Labels,Labels,Fix Version/s,Epic Link
+LIB-2101,Story,Bulk import of catalogue items via CSV,"As a catalogue librarian I want to upload new items as a CSV so that I do not have to enter them one by one.","- The upload accepts CSV files with between 1 and 5000 rows
+- A row with an invalid ISBN is rejected and the line number is shown in the error report
+- Only users with the role Catalogue Maintenance may open the upload dialog
+Given a valid file with 120 rows
+When the librarian confirms the upload
+Then the new items are visible in the catalogue within one minute",High,In Progress,Catalogue,catalogue,release-critical,R2026.10,Catalogue Data
+LIB-2133,Story,Availability shown directly in the hit list,"Staff should see an item's status without opening it.","- The hit list shows Available, On loan or Missing for every item
+- For an item on loan the return date is shown as well
+- Items without a shelf mark show the status Unknown",Medium,In Progress,Catalogue,hitlist,,R2026.10,Catalogue Data
+LIB-2150,Bug,A loan can still be renewed after it was returned,"After a return the Renew button is still shown but the renewal silently fails.","- The Renew button is hidden as soon as the status changes from On loan to Returned
+- A loan in status On loan can still be renewed
+- Renewing moves the return date two weeks later",High,Ready for Test,Lending,regression,,R2026.10,

@@ -1,0 +1,13 @@
+Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Labels,Labels,Fix Version/s,Epic Link
+BIB-2101,Story,Massenimport von Medien über CSV,"Als Katalogpflegerin möchte ich neue Medien als CSV hochladen, damit ich sie nicht einzeln erfassen muss.","- Der Upload akzeptiert CSV-Dateien mit 1 bis 5000 Zeilen
+- Eine Zeile mit ungültiger ISBN wird abgewiesen und die Zeilennummer wird im Fehlerprotokoll angezeigt
+- Nur Benutzer mit der Rolle Katalogpflege dürfen den Upload-Dialog öffnen
+Angenommen eine gültige Datei mit 120 Zeilen
+Wenn die Katalogpflegerin den Upload bestätigt
+Dann sind die neuen Medien innerhalb einer Minute im Katalog sichtbar",High,In Arbeit,Katalog,katalogpflege,release-kritisch,R2026.10,Katalogstammdaten
+BIB-2133,Story,Verfügbarkeit direkt in der Trefferliste,"Mitarbeitende sollen den Status eines Mediums schon in der Trefferliste sehen.","- Die Trefferliste zeigt für jedes Medium den Status Verfügbar, Ausgeliehen oder Vermisst
+- Bei einem ausgeliehenen Medium wird zusätzlich das Rückgabedatum angezeigt
+- Medien ohne Standort zeigen den Status Unbekannt",Medium,In Arbeit,Katalog,trefferliste,,R2026.10,Katalogstammdaten
+BIB-2150,Bug,Ausleihe lässt sich nach der Rücknahme noch verlängern,"Nach der Rücknahme wird die Schaltfläche Verlängern weiterhin angezeigt, die Verlängerung schlägt aber unbemerkt fehl.","- Die Schaltfläche Verlängern wird ausgeblendet, sobald der Status von Ausgeliehen auf Zurückgegeben wechselt
+- Eine Ausleihe im Status Ausgeliehen kann weiterhin verlängert werden
+- Das Verlängern setzt das Rückgabedatum um zwei Wochen nach hinten",High,Bereit zum Test,Ausleihe,regression,,R2026.10,

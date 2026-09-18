@@ -1,0 +1,117 @@
+{
+  "names": {
+    "customfield_10101": "Acceptance Criteria",
+    "summary": "Summary",
+    "description": "Description"
+  },
+  "issues": [
+    {
+      "key": "LIB-2208",
+      "fields": {
+        "summary": "A reason is mandatory for fee waivers above 50 EUR",
+        "issuetype": {
+          "name": "Story"
+        },
+        "priority": {
+          "name": "High"
+        },
+        "components": [
+          {
+            "name": "Fees"
+          }
+        ],
+        "fixVersions": [
+          {
+            "name": "R2026.11"
+          }
+        ],
+        "labels": [
+          "fees",
+          "compliance"
+        ],
+        "description": {
+          "type": "doc",
+          "version": 1,
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "High-value waivers must carry a documented reason so that the receipt can be audited."
+                }
+              ]
+            }
+          ]
+        },
+        "customfield_10101": {
+          "type": "doc",
+          "version": 1,
+          "content": [
+            {
+              "type": "bulletList",
+              "content": [
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "For a waiver of 50 EUR or more the field Reason is mandatory"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Below 50 EUR the field stays optional"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Saving without a reason above the limit is rejected with the message Reason is mandatory"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Only users with the role Fee Administration may override the mandatory check"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

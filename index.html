@@ -1,0 +1,3035 @@
+<title>Kronicore Testfall-Schmiede</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#eef1f0; --surface:#ffffff; --surface-2:#e4e9e8; --surface-3:#f6f8f7;
+  --line:#ccd5d3; --line-soft:#dde4e2;
+  --text:#121d1c; --muted:#5b6b68; --faint:#869592;
+  --accent:#0d6b62; --accent-ink:#ffffff; --accent-soft:#d7ecea; --accent-line:#8fc9c2;
+  --good:#2f7a3d; --good-soft:#dcefdd;
+  --warn:#8a6100; --warn-soft:#f7ead1;
+  --crit:#a5261d; --crit-soft:#f8dedb;
+  --shadow:0 1px 2px rgba(18,29,28,.06), 0 8px 24px -16px rgba(18,29,28,.35);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1211; --surface:#141c1b; --surface-2:#1b2524; --surface-3:#101817;
+    --line:#2a3634; --line-soft:#222d2c;
+    --text:#e3ebe9; --muted:#95a7a3; --faint:#71827f;
+    --accent:#4ecdbd; --accent-ink:#06211e; --accent-soft:#12302d; --accent-line:#2a5b55;
+    --good:#61bd6f; --good-soft:#15291a;
+    --warn:#dfa63f; --warn-soft:#2c2412;
+    --crit:#ef7a70; --crit-soft:#31191a;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1211; --surface:#141c1b; --surface-2:#1b2524; --surface-3:#101817;
+  --line:#2a3634; --line-soft:#222d2c;
+  --text:#e3ebe9; --muted:#95a7a3; --faint:#71827f;
+  --accent:#4ecdbd; --accent-ink:#06211e; --accent-soft:#12302d; --accent-line:#2a5b55;
+  --good:#61bd6f; --good-soft:#15291a;
+  --warn:#dfa63f; --warn-soft:#2c2412;
+  --crit:#ef7a70; --crit-soft:#31191a;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--sans); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:600; letter-spacing:-.01em}
+p{margin:0}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+
+.wrap{max-width:1280px; margin:0 auto; padding-inline:16px; padding-block:0 56px}
+
+/* ---------- masthead ---------- */
+.masthead{
+  display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px 24px;
+  padding-block:24px 18px; border-bottom:1px solid var(--line);
+}
+.brand{display:flex; flex-direction:column; gap:3px; min-width:0}
+.brand .eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
+}
+.brand h1{font-size:25px; line-height:1.15}
+.brand .sub{color:var(--muted); font-size:13.5px; max-width:58ch}
+.masthead-actions{display:flex; gap:8px; margin-left:auto; flex-wrap:wrap}
+
+/* ---------- kpi strip ---------- */
+.kpis{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--surface); border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; margin-block:18px;
+}
+.kpi{background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:2px;
+  box-shadow:0 0 0 1px var(--line-soft)}
+.kpi .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.kpi .v{font-family:var(--mono); font-size:26px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums}
+.kpi .n{font-size:12px; color:var(--muted)}
+.kpi.is-good .v{color:var(--good)} .kpi.is-warn .v{color:var(--warn)} .kpi.is-crit .v{color:var(--crit)}
+.meter{height:4px; border-radius:2px; background:var(--surface-2); overflow:hidden; margin-top:6px}
+.meter>i{display:block; height:100%; background:var(--accent)}
+
+/* ---------- layout ---------- */
+.shell{display:grid; grid-template-columns:232px minmax(0,1fr); gap:24px; align-items:start}
+@media (max-width:860px){ .shell{grid-template-columns:minmax(0,1fr)} }
+
+.rail{position:sticky; top:calc(env(safe-area-inset-top,0px) + 8px); display:flex; flex-direction:column; gap:2px}
+@media (max-width:860px){
+  .rail{position:static; flex-direction:row; overflow-x:auto; gap:6px; padding-bottom:6px; scrollbar-width:thin}
+}
+.stage{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  padding:9px 11px; border:1px solid transparent; border-radius:7px;
+  background:transparent; cursor:pointer; color:var(--muted); white-space:nowrap;
+}
+.stage:hover{background:var(--surface-2); color:var(--text)}
+.stage[aria-current="true"]{background:var(--surface); border-color:var(--line); color:var(--text); box-shadow:var(--shadow)}
+.stage .num{
+  font-family:var(--mono); font-size:11px; width:20px; height:20px; flex:none;
+  display:grid; place-items:center; border-radius:5px; background:var(--surface-2); color:var(--faint);
+}
+.stage[aria-current="true"] .num{background:var(--accent); color:var(--accent-ink)}
+.stage .lbl{font-size:13.5px; font-weight:500; flex:1; min-width:0}
+.stage .cnt{font-family:var(--mono); font-size:11px; color:var(--faint); font-variant-numeric:tabular-nums}
+
+/* ---------- panels ---------- */
+.panel{display:flex; flex-direction:column; gap:16px; min-width:0}
+.panel-head{display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+.panel-head h2{font-size:19px}
+.panel-head .hint{color:var(--muted); font-size:13px; flex:1 1 280px; min-width:0}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:16px}
+.card.tight{padding:12px}
+.card>h3{font-size:14px; margin-bottom:10px}
+.card-sub{color:var(--muted); font-size:12.5px; margin-top:-6px; margin-bottom:10px}
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px}
+
+label.field{display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--muted)}
+label.field>span{font-weight:500}
+input[type=text],input[type=number],select,textarea{
+  width:100%; padding:7px 9px; background:var(--surface-3); border:1px solid var(--line);
+  border-radius:6px; font-size:13.5px;
+}
+textarea{font-family:var(--mono); font-size:12.5px; line-height:1.55; resize:vertical; min-height:120px}
+input[type=file]{font-size:12.5px; color:var(--muted); max-width:100%}
+
+.btn{
+  display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:6px;
+  border:1px solid var(--line); background:var(--surface); color:var(--text);
+  font-size:13px; font-weight:500; cursor:pointer;
+}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.sm{padding:4px 9px; font-size:12px}
+.btn.ghost{background:transparent; border-color:transparent; color:var(--muted)}
+.btn.ghost:hover{background:var(--surface-2); color:var(--text)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.row.end{justify-content:flex-end}
+
+.chip{
+  display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:20px;
+  font-size:11.5px; font-weight:500; background:var(--surface-2); color:var(--muted);
+  border:1px solid var(--line-soft); white-space:nowrap;
+}
+.chip.mono{font-family:var(--mono); font-size:11px}
+.chip.accent{background:var(--accent-soft); color:var(--accent); border-color:var(--accent-line)}
+.chip.good{background:var(--good-soft); color:var(--good); border-color:transparent}
+.chip.warn{background:var(--warn-soft); color:var(--warn); border-color:transparent}
+.chip.crit{background:var(--crit-soft); color:var(--crit); border-color:transparent}
+.chip button{background:none; border:0; padding:0; cursor:pointer; color:inherit; opacity:.6; font-size:13px; line-height:1}
+.chip button:hover{opacity:1}
+
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:8px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; font-size:13px}
+th,td{text-align:left; padding:8px 11px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); font-weight:500; background:var(--surface-3); position:sticky; top:0;
+}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-3)}
+td.id{font-family:var(--mono); font-size:11.5px; color:var(--muted); white-space:nowrap}
+td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+
+.empty{
+  border:1px dashed var(--line); border-radius:9px; padding:26px 18px; text-align:center;
+  color:var(--muted); font-size:13.5px; background:var(--surface-3);
+}
+.note{
+  border-left:3px solid var(--accent); background:var(--accent-soft); color:var(--text);
+  padding:10px 13px; border-radius:0 7px 7px 0; font-size:13px;
+}
+.note.warn{border-left-color:var(--warn); background:var(--warn-soft)}
+.note strong{font-weight:600}
+
+/* ---------- requirement / draft cards ---------- */
+.reqcard{background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden}
+.reqcard>header{
+  display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center;
+  padding:11px 14px; border-bottom:1px solid var(--line-soft); background:var(--surface-3);
+}
+.reqcard>header .key{font-family:var(--mono); font-size:12.5px; font-weight:600; color:var(--accent)}
+.reqcard>header .sum{font-weight:600; font-size:14px; flex:1 1 260px; min-width:0}
+.reqcard .body{padding:13px 14px; display:flex; flex-direction:column; gap:11px}
+.aclist{display:flex; flex-direction:column; gap:6px; margin:0; padding:0; list-style:none}
+.aclist li{
+  display:flex; gap:9px; align-items:flex-start; font-size:13px;
+  padding:7px 10px; background:var(--surface-3); border-radius:6px; border:1px solid var(--line-soft);
+}
+.aclist .acn{font-family:var(--mono); font-size:10.5px; color:var(--faint); padding-top:2px; flex:none}
+.matchrow{
+  display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center;
+  padding:7px 10px; border:1px solid var(--line-soft); border-radius:6px; font-size:12.5px;
+}
+.matchrow.top{border-color:var(--accent-line); background:var(--accent-soft)}
+.matchrow .nm{flex:1 1 200px; min-width:0}
+.score{font-family:var(--mono); font-size:11.5px; font-variant-numeric:tabular-nums; color:var(--muted)}
+.bar{width:54px; height:5px; border-radius:3px; background:var(--surface-2); overflow:hidden; flex:none}
+.bar>i{display:block; height:100%; background:var(--accent)}
+
+.draft{background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden}
+.draft.approved{border-color:var(--good)}
+.draft.rejected{opacity:.55}
+.draft>header{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 13px; border-bottom:1px solid var(--line-soft)}
+.draft>header .grip{font-family:var(--mono); font-size:11px; color:var(--faint); flex:none}
+.draft .title-in{flex:1 1 280px; min-width:0; font-weight:600; font-size:13.5px; background:transparent; border-color:transparent}
+.draft .title-in:hover,.draft .title-in:focus{background:var(--surface-3); border-color:var(--line)}
+.draft .body{padding:12px 13px; display:flex; flex-direction:column; gap:11px}
+.metagrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:9px}
+.steps{width:100%; font-size:12.5px}
+.steps th:first-child,.steps td:first-child{width:34px; text-align:center}
+.steps td{padding:5px 7px}
+.steps textarea{min-height:44px; font-size:12.5px; font-family:var(--sans); background:var(--surface-3)}
+
+.pre{
+  font-family:var(--mono); font-size:11.5px; line-height:1.6; white-space:pre;
+  background:var(--surface-3); border:1px solid var(--line); border-radius:8px;
+  padding:12px; overflow:auto; max-height:380px; margin:0;
+}
+.toast{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
+  background:var(--text); color:var(--bg); padding:9px 16px; border-radius:20px; font-size:13px;
+  font-weight:500; box-shadow:var(--shadow); z-index:50; max-width:calc(100% - 32px);
+}
+.split{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+.filterbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.filterbar input[type=text]{flex:1 1 190px; max-width:340px}
+.filterbar select{width:auto; min-width:120px}
+.small{font-size:12px; color:var(--muted)}
+.mono{font-family:var(--mono)}
+.stack{display:flex; flex-direction:column; gap:12px}
+.checkline{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text)}
+.checkline input{accent-color:var(--accent)}
+details.raw{border:1px solid var(--line-soft); border-radius:7px; padding:8px 11px; background:var(--surface-3)}
+details.raw summary{cursor:pointer; font-size:12.5px; color:var(--muted); font-weight:500}
+details.raw[open] summary{margin-bottom:8px}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand">
+      <span class="eyebrow">Archiv &rarr; Anforderung &rarr; qTest</span>
+      <h1>Testfall-Schmiede</h1>
+      <p class="sub">Import your existing test-case archive in any order, pull requirements out of Jira, and forge new qTest-ready test cases that keep your team's conventions.</p>
+    </div>
+    <div class="masthead-actions">
+      <button class="btn sm" id="btn-theme" type="button">Theme</button>
+      <button class="btn sm" id="btn-sample" type="button">Load sample data</button>
+      <button class="btn sm" id="btn-reset" type="button">Clear all</button>
+    </div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="shell">
+    <nav class="rail" id="rail" aria-label="Pipeline"></nav>
+    <main id="panel" class="panel"></main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+"use strict";
+
+/* ======================================================================
+   Kronicore Testfall-Schmiede
+   Everything runs in the browser. Nothing is uploaded anywhere.
+   ====================================================================== */
+
+const LS_KEY = "kronicore.forge.v2";
+
+const S = {
+  stage: "archive",
+  archive: [],        // past test cases  {tcid,name,…,requirement,area,path,steps:[{action,expected}]}
+  history: [],        // past requirements, linked to those test cases by issue key
+  requirements: [],   // {key,summary,description,ac:[{text,kind,technique}],issuetype,epic,labels,components,fixVersion,priority,selectedTemplate}
+  drafts: [],
+  conventions: null,
+  archiveHeaders: null,
+  sampleLoaded: false,
+  filters: { archive:"", archiveType:"", archiveArea:"", drafts:"" },
+  importPath: "",                   // node of the module tree the next import belongs to
+  migrateThreshold: 40,             // percent from which a suggestion is applied in bulk
+  moduleTree: [],                   // full paths, pasted once from qTest
+  gen: {
+    positive:true, negative:true, boundary:true, roles:true, e2e:true,
+    usePreamble:true, useEpilogue:true, namePattern:"", minScore:0.10,
+    lang:"auto",                    // auto = whatever language the archive is written in
+    target:"qtest"                  // qtest | tosca | both
+  },
+  exp: { delimiter:";", bom:true, repeatName:true, traceability:true, onlyApproved:true, headerLang:"archive", customFields:true, modulePath:true, pathSep:" > " },
+  jiraAcField: ""     // e.g. customfield_10101, when Jira does not send field names
+};
+
+/* ---------------------------------------------------------------- utils */
+const $ = (sel, root) => (root||document).querySelector(sel);
+const el = (tag, attrs, kids) => {
+  const n = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === "class") n.className = attrs[k];
+    else if (k === "html") n.innerHTML = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), attrs[k]);
+    else if (attrs[k] !== null && attrs[k] !== undefined && attrs[k] !== false) n.setAttribute(k, attrs[k]);
+  }
+  if (kids) (Array.isArray(kids) ? kids : [kids]).forEach(c => c && n.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+  return n;
+};
+const esc = s => String(s == null ? "" : s);
+const clean = s => esc(s).replace(/\s+/g, " ").trim();
+// same, but line breaks survive: inside a step they carry the bullet structure
+const cleanML = s => esc(s).replace(/\r\n?/g, "\n").replace(/[ \t\u00a0]+/g, " ")
+  .replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+const titlecase = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const uniq = a => Array.from(new Set(a.filter(x => x !== "" && x != null)));
+
+let toastTimer = null;
+function toast(msg) {
+  const old = $(".toast"); if (old) old.remove();
+  clearTimeout(toastTimer);
+  const t = el("div", { class: "toast", text: msg, role: "status" });
+  document.body.appendChild(t);
+  toastTimer = setTimeout(() => t.remove(), 3200);
+}
+
+let storageWarned = false;
+function save() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      archive: S.archive, history: S.history, requirements: S.requirements, drafts: S.drafts,
+      conventions: S.conventions, archiveHeaders: S.archiveHeaders,
+      sampleLoaded: S.sampleLoaded, gen: S.gen, exp: S.exp, jiraAcField: S.jiraAcField, importPath: S.importPath, moduleTree: S.moduleTree, migrateThreshold: S.migrateThreshold
+    }));
+  } catch (e) {
+    if (!storageWarned) {
+      storageWarned = true;
+      toast("This browser will not keep your work between visits — export before you close the tab.");
+    }
+  }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    Object.assign(S, {
+      archive: d.archive || [], history: d.history || [], requirements: d.requirements || [], drafts: d.drafts || [],
+      conventions: d.conventions || null, archiveHeaders: d.archiveHeaders || null,
+      sampleLoaded: !!d.sampleLoaded,
+      jiraAcField: d.jiraAcField || "",
+      importPath: d.importPath || d.importArea || "",
+      migrateThreshold: d.migrateThreshold || 40,
+      moduleTree: d.moduleTree || []
+    });
+    if (d.gen) Object.assign(S.gen, d.gen);
+    if (d.exp) Object.assign(S.exp, d.exp);
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ------------------------------------------------------- CSV in and out */
+function detectDelimiter(text) {
+  const line = text.split(/\r?\n/).find(l => l.trim().length) || "";
+  let best = ",", bestN = -1;
+  for (const d of [",", ";", "\t", "|"]) {
+    let n = 0, q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') q = !q; else if (c === d && !q) n++;
+    }
+    if (n > bestN) { bestN = n; best = d; }
+  }
+  return best;
+}
+
+function parseDelimited(text, delim) {
+  text = String(text).replace(/^﻿/, "");
+  const d = delim || detectDelimiter(text);
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === d) { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ""));
+}
+
+const isSheetFile = name => /\.(xlsx|xlsm|xls)$/i.test(name || "");
+
+/* qTest exports one sheet per module, named "MD-42 Katalog", and the
+   test cases inside carry no module column — so the sheet name is the module. */
+function sheetTables(buffer) {
+  if (typeof XLSX === "undefined") return null;
+  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+  const out = [];
+  wb.SheetNames.forEach(name => {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", blankrows: false, raw: false })
+      .map(r => r.map(c => (c === null || c === undefined) ? "" : String(c)))
+      .filter(r => r.some(c => c.trim() !== ""));
+    if (rows.length >= 2) out.push({ sheet: name, rows: rows });
+  });
+  return out;
+}
+/* The qTest module tree is four to six levels deep and a sheet name only ever
+   carries the leaf, so an import is placed by its full path. The tree is pasted
+   once: indented text as it appears in qTest, or one "A > B > C" path per line. */
+function parseModuleTree(text) {
+  const out = [];
+  const stack = [];
+  String(text || "").split(/\r?\n/).forEach(raw => {
+    if (!clean(raw)) return;
+    if (raw.indexOf(">") >= 0) {
+      const p = raw.split(">").map(x => clean(x)).filter(Boolean).join(" > ");
+      if (p) out.push(p);
+      return;
+    }
+    const indent = (raw.match(/^[ \t]*/)[0] || "").replace(/\t/g, "    ").length;
+    const name = clean(raw.replace(/^[\s|`+*▸▾►▼└├─–—]+/, ""));
+    if (!name) return;
+    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+    stack.push({ indent: indent, name: name });
+    out.push(stack.map(x => x.name).join(" > "));
+  });
+  return uniq(out);
+}
+const pathLeaf = path => { const p = String(path || "").split(">"); return clean(p[p.length - 1]); };
+const pathSegments = c => {
+  const src = c.path || c.area || "";
+  return String(src).split(">").map(x => clean(x)).filter(Boolean);
+};
+
+/* One export file is one area; the sheets inside it are its modules. */
+function areaFromFile(fileName) {
+  let n = String(fileName || "").replace(/\.[^.]+$/, "");
+  n = n.replace(/^[0-9a-f]{6,}[-_]/i, "");                     // an upload prefix, not the area
+  n = n.replace(/^(kopie[ _]von[ _]|copy[ _]of[ _])/i, "");
+  n = n.replace(/[-_](test[ _]?cases?|test[ _]?runs?|testfall|testfaelle|testlauf)[-_]?\d*$/i, "");
+  n = n.replace(/[-_]\d{6,}$/, "");
+  return clean(n.replace(/[_]+/g, " "));
+}
+function moduleFromSheet(name) {
+  return clean(String(name || "").replace(/^[A-Za-z]{1,3}-\d+\s*[-–:]?\s*/, ""));
+}
+const noReader = () => new Error("the spreadsheet reader did not load — save the file as CSV and import that");
+
+/* The archive takes every sheet; requirements take the fullest one. */
+async function readTables(file) {
+  if (!isSheetFile(file.name)) return [{ sheet: "", rows: parseDelimited(await file.text()) }];
+  const tables = sheetTables(await file.arrayBuffer());
+  if (!tables) throw noReader();
+  if (!tables.length) throw new Error("no sheet in that workbook has any rows");
+  return tables;
+}
+
+/* Every shape Jira hands out, read into requirement objects. */
+async function parseRequirementFile(file) {
+  const table = await readTable(file);
+  if (table.json) return ingestJiraJson(table.json);
+  if (table.xml) return ingestJiraXml(table.xml);
+  return ingestRequirementRows(table.rows);
+}
+
+/* Returns {rows} for tabular files, {json} for a pasted or uploaded Jira response. */
+async function readTable(file) {
+  if (isSheetFile(file.name)) {
+    const tables = sheetTables(await file.arrayBuffer());
+    if (!tables) throw noReader();
+    let best = null;
+    tables.forEach(t => { if (!best || t.rows.length > best.rows.length) best = t; });
+    if (!best) throw new Error("no sheet in that workbook has any rows");
+    return { rows: best.rows };
+  }
+  const text = await file.text();
+  if (/^\s*[\[{]/.test(text)) return { json: text };
+  if (/^\s*<(\?xml|rss|item)/i.test(text)) return { xml: text };
+  return { rows: parseDelimited(text) };
+}
+
+function toCsv(rows, delim, bom) {
+  const q = v => {
+    const s = esc(v);
+    return /["\n\r]|^\s|\s$/.test(s) || s.indexOf(delim) >= 0 ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return (bom ? "﻿" : "") + rows.map(r => r.map(q).join(delim)).join("\r\n");
+}
+
+/* ------------------------------------------------- header field mapping */
+const norm = h => esc(h).toLowerCase().replace(/[\s_\-/\\.#()\[\]]+/g, "");
+
+const FIELD_ALIASES = {
+  tcid:        ["testcaseid","tcid","id","testid","key","nr","nummer","pid","qtestid","testcasepid","identifier"],
+  name:        ["name","title","testcasename","testcasetitle","summary","bezeichnung","testfall","testfallname","testcase","titel"],
+  description: ["description","beschreibung","kurzbeschreibung","objective","ziel","details","testobjective","zweck","purpose"],
+  precondition:["precondition","preconditions","vorbedingung","vorbedingungen","voraussetzung","voraussetzungen","setup","initialstate","ausgangslage"],
+  stepNo:      ["teststep","teststepnumber","teststep#","stepnumber","step","stepno","schritt","schrittnr","testschritt","testschrittnr","order"],
+  stepAction:  ["teststepdescription","stepdescription","testschrittbeschreibung","action","aktion","stepaction","testschritte","schritte","steps","handlung","durchfuehrung","durchführung","stepdetail","teststepaction"],
+  stepExpected:["teststepexpectedresult","expectedresult","expected","erwartetesergebnis","sollergebnis","erwartetesresultat","result","ergebnis","expectedoutcome","stepexpectedresult"],
+  module:      ["module","modulepath","modul","folder","parentmodule","testsuite","suite","component","komponente","bereich","path","ordner"],
+  type:        ["type","testtype","testcasetype","testart","kind","category","kategorie","art","testlevel","executiontype"],
+  priority:    ["priority","prio","prioritaet","priorität","severity","wichtigkeit"],
+  status:      ["status","state","zustand","teststatus"],
+  tags:        ["tags","labels","keywords","schlagworte","stichworte"],
+  // "Requirement Ids" holds the issue key that links a case to its ticket, so it
+  // wins over "Requirements", which a qTest export fills with titles.
+  requirement: ["requirement","requirementid","requirementids","testcasejirarequirementid","requirements","jirakey","linkedrequirement","story","anforderung","coveredrequirement","reqid"]
+};
+
+function mapHeaders(headers) {
+  const norms = headers.map(norm);
+  const map = {}, taken = {};
+  const claim = (field, i) => { map[field] = i; taken[i] = true; };
+
+  // Exact matches, alias by alias, so the canonical name wins a collision:
+  // a project with both "Type" and "Test type" maps Type, not Test type.
+  for (const field in FIELD_ALIASES) {
+    const aliases = FIELD_ALIASES[field];
+    for (let a = 0; a < aliases.length && map[field] === undefined; a++) {
+      for (let i = 0; i < norms.length; i++) {
+        if (!taken[i] && norms[i] === aliases[a]) { claim(field, i); break; }
+      }
+    }
+  }
+  // Then a looser containment pass for anything still unmapped.
+  for (const field in FIELD_ALIASES) {
+    if (map[field] !== undefined) continue;
+    for (let i = 0; i < norms.length; i++) {
+      const n = norms[i];
+      if (taken[i] || n.length <= 4) continue;
+      if (FIELD_ALIASES[field].some(a => a.length > 4 && (n.indexOf(a) >= 0 || a.indexOf(n) >= 0))) { claim(field, i); break; }
+    }
+  }
+  return map;
+}
+
+/* --------------------------------------------------------- archive load */
+function ingestArchiveRows(rows, sheetModule) {
+  if (!rows.length) return { cases: [], headers: [] };
+  const headers = rows[0].map(clean);
+  const m = mapHeaders(headers);
+
+  // qTest writes "Test Case Id" twice: the internal number and the id you see
+  // in the UI. Prefer the one that reads like an id.
+  if (m.tcid !== undefined) {
+    const label = headers[m.tcid];
+    const twins = headers.map((h, i) => i).filter(i => i !== m.tcid && headers[i] === label);
+    const sample = col => {
+      for (let r = 1; r < rows.length; r++) { const v = clean(rows[r][col]); if (v) return v; }
+      return "";
+    };
+    const looksLikeId = v => /^[A-Za-z]{1,6}[-_ ]?\d+/.test(v);
+    if (twins.length && !looksLikeId(sample(m.tcid))) {
+      const better = twins.filter(i => looksLikeId(sample(i)))[0];
+      if (better !== undefined) m.tcid = better;
+    }
+  }
+
+  const get = (r, f) => m[f] === undefined ? "" : clean(r[m[f]]);
+  const getML = (r, f) => m[f] === undefined ? "" : cleanML(r[m[f]]);
+  const labels = {};
+  Object.keys(m).forEach(f => { labels[f] = headers[m[f]]; });
+
+  // A Test Run export carries the execution, not the design: its Id is the run,
+  // its Status is the result, and there is no module or precondition.
+  const runExport = headers.some(h => /^(executed (start|end)|planned (start|end) date|tester|test run)/i.test(clean(h)))
+    && headers.some(h => norm(h) === "testcaseid");
+  if (runExport) delete m.status;   // "Passed" is a result, not a test-case status
+
+  const usedIdx = new Set(Object.keys(m).map(k => m[k]));
+  const seenLabel = {};
+  Object.keys(labels).forEach(f => { seenLabel[labels[f]] = true; });
+  const extraHeaders = headers
+    .map((h, i) => ({ name: h, i: i }))
+    .filter(x => {
+      if (!x.name || usedIdx.has(x.i) || seenLabel[x.name]) return false;
+      seenLabel[x.name] = true;
+      return true;
+    })
+    .slice(0, 30);
+
+  const cases = [];
+  let current = null, carriedKey = "";
+
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const id = get(r, "tcid"), name = get(r, "name");
+    const action = getML(r, "stepAction"), expected = getML(r, "stepExpected");
+    const key = id || name;
+
+    const isContinuation = current && (
+      (key === "" && (action || expected)) ||
+      (key !== "" && key === carriedKey)
+    );
+
+    if (!isContinuation) {
+      if (!key && !action) continue;
+      current = {
+        tcid: id || "",
+        name: name || (action ? clean(action).slice(0, 80) : "Untitled test case"),
+        description: getML(r, "description"),
+        precondition: getML(r, "precondition"),
+        module: get(r, "module"),
+        type: get(r, "type"),
+        priority: get(r, "priority"),
+        status: get(r, "status"),
+        tags: get(r, "tags"),
+        requirement: get(r, "requirement"),
+        extra: {},
+        steps: []
+      };
+      carriedKey = key;
+      cases.push(current);
+    } else {
+      // keep the first non-empty value for header-level fields
+      ["description","precondition","module","type","priority","status","tags","requirement"].forEach(f => {
+        if (!current[f]) current[f] = (f === "description" || f === "precondition") ? getML(r, f) : get(r, f);
+      });
+    }
+    extraHeaders.forEach(x => {
+      const v = clean(r[x.i]);
+      if (v && !current.extra[x.name]) current.extra[x.name] = v;
+    });
+
+    if (action || expected) {
+      // a single-cell step list ("1. do x\n2. do y") is split into separate steps,
+      // and a single overall expected result lands on the last of them
+      const blob = m.stepAction === undefined ? "" : String(rows[i][m.stepAction] || "");
+      // only an export without a step-number column packs several steps into one cell
+      const parts = (m.stepNo === undefined && /\n|(?:^|\s)\d+[.)]\s/.test(blob)) ? splitStepBlob(blob) : null;
+      if (parts && parts.length > 1) {
+        if (expected) parts[parts.length - 1].expected = expected;
+        parts.forEach(s => current.steps.push(s));
+      } else {
+        current.steps.push({ action: action, expected: expected });
+      }
+    }
+  }
+
+  // a run export's sheet is named after the run, so it says nothing about modules
+  const fallbackModule = runExport ? "" : clean(sheetModule);
+  cases.forEach((c, i) => {
+    // some exports put the test-case id in the name column and have no id column
+    if (!c.tcid && /^[A-Za-z]{2,6}[_-][A-Za-z0-9_-]{2,}$/.test(c.name) && c.name.indexOf(" ") < 0) c.tcid = c.name;
+    if (!c.tcid) c.tcid = "ARC-" + String(i + 1).padStart(4, "0");
+    if (!c.module && fallbackModule) c.module = fallbackModule;
+  });
+  return { cases, headers, labels: labels, runExport: runExport, extraHeaders: extraHeaders.map(x => x.name) };
+}
+
+function splitStepBlob(blob) {
+  return String(blob).split(/\r?\n/).map(clean).filter(Boolean)
+    .map(l => ({ action: l.replace(/^\d+[.)]\s*/, ""), expected: "" }));
+}
+
+/* ---------------------------------------------- requirements (Jira) load */
+const JIRA_ALIASES = {
+  key:        ["issuekey","key","issueid","ticket","schluessel","schlüssel","id"],
+  summary:    ["summary","title","zusammenfassung","name"],
+  description:["description","beschreibung"],
+  ac:         ["acceptancecriteria","customfieldacceptancecriteria","akzeptanzkriterien","abnahmekriterien","ac","acceptance"],
+  issuetype:  ["issuetype","type","vorgangstyp","typ"],
+  priority:   ["priority","prioritaet","priorität"],
+  epic:       ["epiclink","epic","parent","parentsummary","uebergeordnet"],
+  status:     ["status"],
+  fixVersion: ["fixversions","fixversion","fixversions","releaseversion","version","loesungsversion"]
+};
+const MULTI_ALIASES = { labels:["labels","label","stichworte"], components:["components","component","komponenten","komponente"], fixVersion:["fixversions","fixversion","fixversions","version"] };
+
+function ingestRequirementRows(rows) {
+  if (!rows.length) return [];
+  const headers = rows[0].map(clean);
+  const idx = {};
+  headers.forEach((h, i) => {
+    const n = norm(h);
+    for (const f in JIRA_ALIASES) {
+      if (idx[f] !== undefined) continue;
+      if (JIRA_ALIASES[f].indexOf(n) >= 0) idx[f] = i;
+    }
+    for (const f in JIRA_ALIASES) {
+      if (idx[f] !== undefined) continue;
+      if (JIRA_ALIASES[f].some(a => a.length > 5 && n.indexOf(a) >= 0)) idx[f] = i;
+    }
+  });
+  // Jira repeats Labels / Components / Fix Version columns — collect every one of them
+  const multi = {};
+  for (const f in MULTI_ALIASES) {
+    multi[f] = headers.map((h, i) => MULTI_ALIASES[f].indexOf(norm(h)) >= 0 ? i : -1).filter(i => i >= 0);
+  }
+
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const g = f => idx[f] === undefined ? "" : clean(r[idx[f]]);
+    const gm = f => uniq((multi[f] || []).map(j => clean(r[j]))).join(", ");
+    const key = g("key");
+    const summary = g("summary");
+    if (!key && !summary) continue;
+    const descRaw = idx.description === undefined ? "" : esc(r[idx.description]);
+    const acRaw = idx.ac === undefined ? "" : esc(r[idx.ac]);
+    out.push(buildRequirement({
+      key: key || "REQ-" + (out.length + 1),
+      summary: summary || key,
+      description: descRaw,
+      acRaw: acRaw,
+      issuetype: g("issuetype") || "Story",
+      priority: g("priority"),
+      epic: g("epic"),
+      labels: gm("labels") || "",
+      components: gm("components") || "",
+      fixVersion: gm("fixVersion") || g("fixVersion")
+    }));
+  }
+  return out;
+}
+
+/* Atlassian Document Format -> plain text */
+function adfToText(node, depth) {
+  depth = depth || 0;
+  if (node == null) return "";
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(n => adfToText(n, depth)).join("");
+  let out = "";
+  if (node.type === "text") out += node.text || "";
+  if (node.type === "hardBreak") out += "\n";
+  if (node.content) out += adfToText(node.content, depth + 1);
+  if (node.type === "listItem") out = "- " + out.trim() + "\n";
+  if (node.type === "paragraph" || node.type === "heading") out += "\n";
+  if (node.type === "codeBlock") out += "\n";
+  return out;
+}
+
+/* Jira's XML export — the one on a single issue's Export menu, and the same
+   shape for a whole filter. Its <customfieldname> gives the acceptance-criteria
+   field by its label, so no field id has to be looked up. */
+function htmlToText(html) {
+  const doc = new DOMParser().parseFromString("<body>" + String(html || "") + "</body>", "text/html");
+  const walk = node => {
+    if (node.nodeType === 3) return node.nodeValue.replace(/[ \t\n]+/g, " ");
+    if (node.nodeType !== 1) return "";
+    const tag = node.tagName.toLowerCase();
+    if (tag === "br") return "\n";
+    let inner = "";
+    for (let i = 0; i < node.childNodes.length; i++) inner += walk(node.childNodes[i]);
+    if (tag === "li") return "- " + inner.trim() + "\n";
+    if (/^(p|div|h[1-6]|tr|blockquote|pre|ul|ol)$/.test(tag)) return inner.trim() + "\n";
+    return inner;
+  };
+  return walk(doc.body).replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function ingestJiraXml(text) {
+  // Some exports carry named HTML entities that strict XML rejects, so fall back
+  // to the lenient HTML parser — the element names are read the same way either.
+  let doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) {
+    doc = new DOMParser().parseFromString(text, "text/html");
+  }
+  const items = doc.getElementsByTagName("item");
+  if (!items.length) throw new Error("no <item> found — is this a Jira issue export?");
+
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const one = tag => {
+      const e = it.getElementsByTagName(tag)[0];
+      return e ? clean(e.textContent) : "";
+    };
+    const many = tag => {
+      const es = it.getElementsByTagName(tag);
+      const v = [];
+      for (let j = 0; j < es.length; j++) if (clean(es[j].textContent)) v.push(clean(es[j].textContent));
+      return uniq(v).join(", ");
+    };
+    const rawDesc = it.getElementsByTagName("description")[0];
+
+    // the acceptance criteria live in a custom field, found by its own name
+    let acText = "";
+    const cfs = it.getElementsByTagName("customfield");
+    for (let j = 0; j < cfs.length; j++) {
+      const nameEl = cfs[j].getElementsByTagName("customfieldname")[0];
+      const label = nameEl ? clean(nameEl.textContent) : "";
+      const wanted = S.jiraAcField
+        ? (label === clean(S.jiraAcField) || cfs[j].getAttribute("id") === clean(S.jiraAcField))
+        : /acceptance|akzeptanz|abnahme/i.test(label);
+      if (!wanted) continue;
+      const vals = cfs[j].getElementsByTagName("customfieldvalue");
+      const parts = [];
+      for (let k = 0; k < vals.length; k++) parts.push(htmlToText(vals[k].textContent));
+      acText = parts.filter(Boolean).join("\n");
+      if (acText) break;
+    }
+
+    const key = one("key") || clean((one("title").match(/^\[([^\]]+)\]/) || [])[1]);
+    if (!key && !one("summary")) continue;
+    out.push(buildRequirement({
+      key: key || "REQ-" + (out.length + 1),
+      summary: one("summary") || clean(one("title").replace(/^\[[^\]]+\]\s*/, "")),
+      description: rawDesc ? htmlToText(rawDesc.textContent) : "",
+      acRaw: acText,
+      issuetype: one("type") || "Story",
+      priority: one("priority"),
+      epic: one("parent"),
+      labels: many("label"),
+      components: many("component"),
+      fixVersion: many("fixVersion")
+    }));
+  }
+  return out;
+}
+
+function ingestJiraJson(text) {
+  const data = JSON.parse(text);
+  const issues = Array.isArray(data) ? data : (data.issues || (data.key ? [data] : []));
+  // Jira Cloud sends opaque ids like customfield_10101; ?expand=names adds the labels
+  const names = (data && data.names) || {};
+  const acKeyFor = f => {
+    if (S.jiraAcField && f[S.jiraAcField] !== undefined) return S.jiraAcField;
+    const direct = Object.keys(f).find(k => /acceptance|akzeptanz|abnahme/i.test(k));
+    if (direct) return direct;
+    return Object.keys(names).find(id => /acceptance|akzeptanz|abnahme/i.test(names[id]) && f[id] != null);
+  };
+  return issues.map(it => {
+    const f = it.fields || it;
+    const acField = acKeyFor(f);
+    const descText = typeof f.description === "string" ? f.description : adfToText(f.description);
+    const acText = acField ? (typeof f[acField] === "string" ? f[acField] : adfToText(f[acField])) : "";
+    return buildRequirement({
+      key: it.key || f.key || "REQ",
+      summary: clean(f.summary),
+      description: descText,
+      acRaw: acText,
+      issuetype: (f.issuetype && f.issuetype.name) || "Story",
+      priority: (f.priority && f.priority.name) || "",
+      epic: (f.parent && f.parent.fields && clean(f.parent.fields.summary)) || "",
+      labels: (f.labels || []).join(", "),
+      components: (f.components || []).map(c => c.name || c).join(", "),
+      fixVersion: (f.fixVersions || []).map(v => v.name || v).join(", ")
+    });
+  });
+}
+
+function buildRequirement(raw) {
+  const req = Object.assign({ selectedTemplate: null, area: "" }, raw);
+  req.description = clean(raw.description).length > 0 ? String(raw.description) : "";
+  req.ac = extractAcceptanceCriteria(raw.acRaw, raw.description, raw.summary);
+  delete req.acRaw;
+  return req;
+}
+
+/* --------------------------------------------- acceptance criteria parse */
+const GHERKIN_START = /^(given|angenommen|gegeben\s+sei|szenario|scenario)\b/i;
+const GHERKIN_ANY   = /^(given|when|then|and|but|angenommen|gegeben\s+sei|wenn|dann|und|aber)\b[\s:]/i;
+const BULLET        = /^\s*(?:[-*•‣–]|\d+[.)]|(?:AC|AK|KR)\s*\d+\s*[:.)-]?)\s+/i;
+const MODAL         = /\b(must|shall|should|has to|is able to|can|will|muss|soll|sollte|kann|wird|darf)\b/i;
+
+function extractAcceptanceCriteria(acRaw, description, summary) {
+  const source = clean(acRaw).length > 3 ? acRaw : description;
+  const lines = String(source || "").split(/\r?\n/).map(l => l.replace(/^\s*[>|]\s*/, "").trim()).filter(Boolean);
+  const out = [];
+
+  // A ticket often mixes both notations, so read bullets and Gherkin from the same text.
+  const plain = lines.map(l => ({ raw: l, body: l.replace(BULLET, "").trim(), bulleted: BULLET.test(l) }));
+
+  // 1. Bullet / numbered criteria that are not Gherkin lines
+  plain.filter(l => l.bulleted && !GHERKIN_ANY.test(l.body))
+    .forEach(l => out.push(makeAc(l.body)));
+
+  // 2. Gherkin blocks, bulleted or not
+  const gherkin = plain.filter(l => GHERKIN_ANY.test(l.body));
+  if (gherkin.length >= 2) {
+    let block = [];
+    const flush = () => { if (block.length) { out.push(makeAc(block.join(" → "), block.slice())); block = []; } };
+    plain.forEach(l => {
+      if (!GHERKIN_ANY.test(l.body)) { if (/^(scenario|szenario)\b/i.test(l.body)) flush(); return; }
+      if (GHERKIN_START.test(l.body) && block.length) flush();
+      block.push(l.body);
+    });
+    flush();
+  }
+  if (out.length) return out;
+
+  // 3. Sentences carrying a modal verb ("the system must ...")
+  const sentences = String(source || "").replace(/\s+/g, " ")
+    .split(/(?<=[.!?;])\s+(?=[A-ZÄÖÜ])/).map(s => s.trim()).filter(s => s.length > 12);
+  sentences.filter(s => MODAL.test(s)).forEach(s => out.push(makeAc(s)));
+  if (out.length) return out;
+
+  // 4. Nothing structured — fall back to the summary itself
+  if (clean(summary)) out.push(makeAc(clean(summary)));
+  return out;
+}
+
+function makeAc(text, gherkin) {
+  const t = clean(text);
+  return { text: t, gherkin: gherkin || null, techniques: classifyAc(t) };
+}
+
+/* ISTQB test-design techniques — this is what decides which cases get forged */
+function classifyAc(text) {
+  const t = " " + text.toLowerCase() + " ";
+  const tech = [];
+  if (/\b(?:\d+\s*(?:-|bis|to|–|and|und)\s*\d+|between|zwischen|max(?:imal|imum)?|min(?:imal|imum)?|mindestens|höchstens|hoechstens|at least|at most|up to|länge|laenge|length|zeichen|characters|digits|stellen|limit|grenze|größer|groesser|kleiner|greater|less than)\b/.test(t))
+    tech.push("bva");
+  if (/\b(invalid|ungültig|ungueltig|fehler|error|reject|abgelehnt|pflichtfeld|mandatory|required|erforderlich|validier|validat|nicht erlaubt|not allowed|darf nicht|must not|warnung|warning|meldung)\b/.test(t))
+    tech.push("epInvalid");
+  if (/\b(rolle|role|berechtigung|permission|admin|administrator|nur|only|recht|rights|zugriff|access|gesperrt|blocked|darf nur)\b/.test(t))
+    tech.push("dt");
+  if (/\b(status|zustand|state|von .* nach|from .* to|übergang|uebergang|workflow|wechsel|transition|storniert|freigegeben|approved|cancelled)\b/.test(t))
+    tech.push("st");
+  if (!tech.length) tech.push("ep");
+  return tech;
+}
+
+/* ------------------------------------------------------ text similarity */
+const STOP = new Set(("the a an and or of to in on for with as at by is are be been was were it its this that these those from into über ueber und oder der die das den dem des ein eine einen einem einer eines ist sind war waren wird werden wurde für fuer mit von zu zum zur auf bei nach aus im in am als auch nicht kann soll muss man sich dass wenn dann user benutzer system").split(/\s+/));
+
+function tokenize(text) {
+  return String(text || "").toLowerCase()
+    .replace(/[^a-z0-9äöüßàâçéèêëîïôûùÿñæœ]+/g, " ")
+    .split(" ")
+    .map(w => w.length > 4 ? w.replace(/(en|ern|er|es|s|ung|ungen)$/, "") : w)
+    .filter(w => w.length > 2 && !STOP.has(w));
+}
+
+function tf(tokens) {
+  const m = new Map();
+  tokens.forEach(t => m.set(t, (m.get(t) || 0) + 1));
+  return m;
+}
+
+let IDF = new Map();
+let MATCH_CACHE = new Map();
+let TC_HISTORY = new Map();   // test case -> the past requirements it covered
+let NODE_PROFILES = new Map();// tree node -> its own words plus the cases already placed there
+
+/* Consolidating many old qTest projects into one tree means deciding, per case,
+   which node it now belongs to. A node is described by its own path, and then
+   increasingly by the cases placed there — so the suggestions sharpen as the
+   migration proceeds. */
+function buildNodeProfiles() {
+  NODE_PROFILES = new Map();
+  (S.moduleTree || []).forEach(path => NODE_PROFILES.set(path, [path.split(">").join(" ")]));
+  S.archive.forEach(c => {
+    const arr = NODE_PROFILES.get(clean(c.path));
+    if (arr) arr.push(archiveText(c));
+  });
+}
+const treeHasPath = path => !!(path && NODE_PROFILES.has(clean(path)));
+
+function suggestNodes(tc, limit) {
+  if (!NODE_PROFILES.size) return [];
+  const ownTok = tokenize(archiveText(tc));                       // what the case is about
+  const areaTok = tokenize(tc.path || tc.area || "");             // the old project it came from
+  const tTri = trigrams(tc.name + " " + tc.module + " " + (tc.area || ""));
+  const out = [];
+  NODE_PROFILES.forEach((texts, path) => {
+    const examples = texts.length - 1;
+
+    // How much this case reads like the cases already placed here. A node with
+    // none scores nothing on this, rather than competing on a two-word vector.
+    const byExample = examples ? cosine(ownTok, tokenize(texts.slice(1).join(" "))) : 0;
+
+    // How much of the node's own distinctive vocabulary the case uses. Words
+    // every node shares — application, services, management — weigh almost
+    // nothing; the word unique to one branch carries it. The old project label
+    // is often the best clue — a project named after an application against that
+    // application's node — but it must not outvote what the case is actually
+    // about, so it is capped well below the case's own content.
+    let hitOwn = 0, hitArea = 0;
+    uniq(tokenize(path.split(">").join(" "))).forEach(t => {
+      const w = Math.min(1.5, idf(t));
+      if (ownTok.indexOf(t) >= 0) hitOwn += w;
+      else if (areaTok.indexOf(t) >= 0) hitArea += w;
+    });
+    // Absolute evidence, not proportion: a node whose whole name is one token
+    // would otherwise score full marks on a single incidental word.
+    // One shared word is a hint, two or more is evidence — hence the divisor.
+    const byName = 0.7 * Math.min(1, hitOwn / 4)
+                 + 0.2 * Math.min(1, hitArea / 1.5)
+                 + 0.1 * jaccard(tTri, trigrams(pathLeaf(path)));
+
+    out.push({
+      path: path,
+      score: Math.min(1, Math.max(byExample, 0.9 * byName)),
+      examples: examples,
+      why: byExample >= 0.9 * byName ? "like the cases there" : "name overlap"
+    });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, limit || 3);
+}
+
+/* A qTest export usually already carries the issue key a case was written for,
+   in "Anforderung" or "Test Case Jira Requirement ID". That is the link. */
+function buildLinks() {
+  TC_HISTORY = new Map();
+  if (!S.history.length) return;
+  const byKey = S.history.filter(h => h.key).map(h => ({ h: h, up: h.key.toUpperCase() }));
+  S.archive.forEach(tc => {
+    const ref = String(tc.requirement || "").toUpperCase();
+    if (!ref) return;
+    const hits = byKey.filter(x => ref.indexOf(x.up) >= 0).map(x => x.h);
+    if (hits.length) TC_HISTORY.set(tc, hits);
+  });
+}
+const linkedCases = h => S.archive.filter(tc => (TC_HISTORY.get(tc) || []).indexOf(h) >= 0);
+
+function buildIdf() {
+  IDF = new Map();
+  MATCH_CACHE = new Map();
+  buildLinks();
+  buildNodeProfiles();
+  const docs = S.archive.map(archiveText).concat(S.history.map(reqText)).concat(S.requirements.map(reqText));
+  const n = docs.length || 1;
+  docs.forEach(d => new Set(tokenize(d)).forEach(t => IDF.set(t, (IDF.get(t) || 0) + 1)));
+  IDF.forEach((v, k) => IDF.set(k, Math.log(1 + n / v)));
+}
+const idf = t => IDF.get(t) || Math.log(1 + (S.archive.length + S.requirements.length || 1));
+
+function cosine(aTok, bTok) {
+  const A = tf(aTok), B = tf(bTok);
+  let dot = 0, na = 0, nb = 0;
+  A.forEach((v, k) => { const w = v * idf(k); na += w * w; if (B.has(k)) dot += w * (B.get(k) * idf(k)); });
+  B.forEach((v, k) => { const w = v * idf(k); nb += w * w; });
+  return (na && nb) ? dot / Math.sqrt(na * nb) : 0;
+}
+
+function trigrams(s) {
+  const t = " " + String(s || "").toLowerCase().replace(/[^a-z0-9äöüß]+/g, " ").trim() + " ";
+  const g = new Set();
+  for (let i = 0; i < t.length - 2; i++) g.add(t.slice(i, i + 3));
+  return g;
+}
+function jaccard(a, b) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0; a.forEach(x => { if (b.has(x)) inter++; });
+  return inter / (a.size + b.size - inter);
+}
+
+const archiveText = c => [c.name, c.description, c.module, c.tags, c.steps.map(s => s.action + " " + s.expected).join(" ")].join(" ");
+const reqText = r => [r.summary, r.description, r.components, r.labels, r.ac.map(a => a.text).join(" ")].join(" ");
+
+// a requirement held to a node stays inside that node and everything under it
+const areaBlocked = (req, tc) =>
+  !!(req.area && pathSegments(tc).length && pathSegments(tc).indexOf(req.area) < 0);
+
+function scoreMatch(req, tc) {
+  if (areaBlocked(req, tc)) return 0;
+  const cos = cosine(tokenize(reqText(req)), tokenize(archiveText(tc)));
+  const tri = jaccard(trigrams(req.summary), trigrams(tc.name));
+  let score = 0.72 * cos + 0.28 * tri;
+  const comps = tokenize(req.components + " " + req.labels);
+  const mod = tokenize(tc.module + " " + tc.tags);
+  if (comps.length && mod.length && comps.some(c => mod.indexOf(c) >= 0)) score += 0.08;
+  if (tc.requirement && req.key && tc.requirement.toUpperCase().indexOf(req.key.toUpperCase()) >= 0) score += 0.25;
+  if (tc.area) {
+    const areaTok = tokenize(pathSegments(tc).join(" "));
+    if (areaTok.length && comps.concat(tokenize(req.summary)).some(t => areaTok.indexOf(t) >= 0)) score += 0.06;
+  }
+  return Math.min(1, score);
+}
+
+function matchesFor(req, limit) {
+  const ck = req.key + "|" + (limit || 5);
+  if (MATCH_CACHE.has(ck)) return MATCH_CACHE.get(ck);
+
+  // How close this requirement is to each past one. Requirement-to-requirement
+  // is a far steadier signal than requirement-to-test-case, so wherever a link
+  // exists it carries most of the weight.
+  const rTok = tokenize(reqText(req));
+  const histSim = new Map();
+  S.history.forEach(h => histSim.set(h, cosine(rTok, tokenize(reqText(h)))));
+
+  const res = S.archive
+    .map(tc => {
+      const direct = scoreMatch(req, tc);
+      let via = 0, viaKey = "";
+      if (!areaBlocked(req, tc)) {
+        (TC_HISTORY.get(tc) || []).forEach(h => {
+          const sim = histSim.get(h) || 0;
+          if (sim > via) { via = sim; viaKey = h.key; }
+        });
+      }
+      const blended = 0.55 * direct + 0.45 * via;
+      const lifted = via > 0 && blended > direct;   // the link actually changed the ranking
+      return {
+        tc: tc,
+        score: Math.min(1, lifted ? blended : direct),
+        via: lifted ? via : 0,
+        viaKey: lifted ? viaKey : ""
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit || 5);
+  MATCH_CACHE.set(ck, res);
+  return res;
+}
+
+/* ------------------------------------------- conventions from the archive */
+function deriveConventions() {
+  const A = S.archive;
+  if (!A.length) { S.conventions = null; return; }
+
+  const stepKey = s => clean(s.action).toLowerCase().replace(/["'„“»«]/g, "").replace(/\b\d+\b/g, "#");
+  const first = new Map(), last = new Map();
+  A.forEach(c => {
+    if (!c.steps.length) return;
+    c.steps.slice(0, 2).forEach(s => { const k = stepKey(s); if (k) first.set(k, (first.get(k) || 0) + 1); });
+    const k = stepKey(c.steps[c.steps.length - 1]);
+    if (k) last.set(k, (last.get(k) || 0) + 1);
+  });
+  const pick = (map, minShare) => Array.from(map.entries())
+    .filter(([, n]) => n / A.length >= minShare && n >= 3)
+    .sort((a, b) => b[1] - a[1]).slice(0, 2)
+    .map(([k, n]) => {
+      const src = A.find(c => c.steps.some(s => stepKey(s) === k));
+      const step = src && src.steps.find(s => stepKey(s) === k);
+      return { action: step ? step.action : k, expected: step ? step.expected : "", share: n / A.length, count: n };
+    });
+
+  // naming convention
+  const names = A.map(c => c.name).filter(Boolean);
+  const share = re => names.filter(n => re.test(n)).length / (names.length || 1);
+  let pattern = "{TITLE}";
+  let prefix = "";
+  const segs = n => n.split("_");
+  const enoughNames = names.length >= 5;   // below that any "pattern" is just one name
+
+  // A fixed closing segment, e.g. ..._Web_Regression
+  const tails = new Map();
+  names.forEach(n => {
+    const sg = segs(n);
+    for (let k = 1; k <= 2; k++) {
+      if (sg.length > k + 1) {
+        const tl = sg.slice(-k).join("_");
+        tails.set(tl, (tails.get(tl) || 0) + 1);
+      }
+    }
+  });
+  const tail = !enoughNames ? "" : Array.from(tails.entries())
+    .filter(([, c]) => c / (names.length || 1) >= 0.35 && c >= 3)
+    .sort((a, b) => (b[0].split("_").length - a[0].split("_").length) || (b[1] - a[1]))
+    .map(([tl]) => tl)[0] || "";
+
+  // The longest leading run of segments nearly every name shares: TC_, TF_, …
+  let lead = "";
+  for (let k = 1; enoughNames && k <= 3; k++) {
+    const heads = names.filter(n => segs(n).length > k).map(n => segs(n).slice(0, k).join("_"));
+    const top = topValue(heads);
+    if (top && heads.filter(h => h === top).length / names.length >= 0.6) lead = top;
+    else break;
+  }
+
+  const counts = names.map(n => segs(n).length).sort((a, b) => a - b);
+  const medianSegs = counts[Math.floor(counts.length / 2)] || 1;
+  const leadSegs = lead ? segs(lead).length : 0;
+  const tailSegs = tail ? segs(tail).length : 0;
+  const underscored = names.filter(n => n.indexOf("_") > 0).length / (names.length || 1);
+
+  if (enoughNames && underscored >= 0.5) {
+    prefix = lead;
+    // a segment left over between the lead and the tail is the module slot
+    const wantModule = medianSegs > leadSegs + tailSegs + 1;
+    pattern = (lead ? lead + "_" : "") + (wantModule ? "{MODULE}_" : "") + "{TITLE}" + (tail ? "_" + tail : "");
+  } else if (share(/^\[[^\]]+\]/) >= 0.35) pattern = "[{MODULE}] {TITLE}";
+  else if (share(/^(verify|check|validate|prüfe|pruefe|teste|test)\b/i) >= 0.35) pattern = "Verify {TITLE}";
+
+  // every column the tool did not recognise stays available for the export
+  const extraNames = (S.archiveHeaders && S.archiveHeaders.extra) || [];
+  const extra = extraNames.map(name => {
+    const vals = A.map(c => (c.extra && c.extra[name]) || "").filter(Boolean);
+    return { name: name, values: uniq(vals).slice(0, 25), top: topValue(vals), fill: vals.length / A.length };
+  }).filter(f => f.fill > 0);
+
+  S.conventions = {
+    preamble: pick(first, 0.35),
+    epilogue: pick(last, 0.35),
+    namePattern: pattern,
+    prefix: prefix,
+    types: uniq(A.map(c => c.type)).sort(),
+    priorities: uniq(A.map(c => c.priority)).sort(),
+    statuses: uniq(A.map(c => c.status)).sort(),
+    modules: uniq(A.map(c => c.module)).sort(),
+    areas: uniq([].concat.apply([], A.map(pathSegments))).sort(),
+    paths: uniq(A.map(c => c.path || c.area)).sort(),
+    defaultType: topValue(A.map(c => c.type)) || "Functional",
+    defaultPriority: topValue(A.map(c => c.priority)) || "Medium",
+    defaultStatus: topValue(A.map(c => c.status)) || "",
+    lang: detectLang(A.map(archiveText).join(" ")),
+    avgSteps: Math.round(A.reduce((n, c) => n + c.steps.length, 0) / A.length * 10) / 10,
+    extra: extra
+  };
+  if (!S.gen.namePattern) S.gen.namePattern = S.conventions.namePattern;
+}
+
+function topValue(arr) {
+  const m = new Map();
+  arr.filter(Boolean).forEach(v => m.set(v, (m.get(v) || 0) + 1));
+  let best = "", n = 0;
+  m.forEach((c, v) => { if (c > n) { n = c; best = v; } });
+  return best;
+}
+
+/* ------------------------------------------------- language of the output */
+/* The archive decides the language unless you override it on the Generate stage.
+   Only the generated scaffolding is translated — criterion text stays as the
+   ticket wrote it, and the standard steps are reused from the archive verbatim. */
+
+const TECHNIQUES = {
+  ep:        { en: "Equivalence Partitioning",                 de: "Äquivalenzklassenbildung" },
+  epInvalid: { en: "Equivalence Partitioning – invalid class", de: "Äquivalenzklassenbildung – ungültige Klasse" },
+  bva:       { en: "Boundary Value Analysis",                  de: "Grenzwertanalyse" },
+  dt:        { en: "Decision Table",                           de: "Entscheidungstabelle" },
+  st:        { en: "State Transition",                         de: "Zustandsübergangstest" },
+  uc:        { en: "Use Case Testing",                         de: "Anwendungsfallbasierter Test" }
+};
+function techName(key, lang) {
+  const e = TECHNIQUES[key];
+  return e ? (e[lang] || e.en) : key;
+}
+
+const DE_HINT = /\b(und|oder|der|die|das|den|dem|des|ein|eine|einen|einem|ist|sind|wird|werden|nicht|mit|für|fuer|auf|bei|nach|aus|im|als|auch|kann|soll|muss|darf|angemeldet|anmelden|abmelden|öffnen|oeffnen|eingeben|auswählen|prüfen|pruefen|angezeigt|erfolgreich|Fehlermeldung|Meldung|Benutzer|Artikel|Auftrag|Bestellung|Seite|Feld|Schaltfläche|Pflichtfeld|Kunde|Kunden|Menge|Preis|Betrag)\b/gi;
+const EN_HINT = /\b(the|and|or|is|are|will|shall|not|with|for|on|at|after|from|as|also|can|should|must|logged|login|logout|open|enter|select|check|displayed|shown|successfully|error|message|user|article|order|page|field|button|customer|quantity|price|amount)\b/gi;
+
+function detectLang(text) {
+  const s = String(text || "");
+  if (!s.trim()) return "en";
+  const de = (s.match(DE_HINT) || []).length + (s.match(/[äöüßÄÖÜ]/g) || []).length * 0.5;
+  const en = (s.match(EN_HINT) || []).length;
+  return de > en ? "de" : "en";
+}
+const LANG_LABEL = { de: "Deutsch", en: "English" };
+
+/* Which language a given requirement's cases come out in. */
+function genLangFor(req) {
+  if (S.gen.lang === "de" || S.gen.lang === "en") return S.gen.lang;
+  if (S.conventions && S.conventions.lang) return S.conventions.lang;
+  return req ? detectLang(reqText(req)) : "en";
+}
+
+const P = {
+  en: {
+    checkThat:    x => "Check that " + x.charAt(0).toLowerCase() + x.slice(1),
+    descPositive: (k, ac, t) => "Verifies " + k + " – " + ac + ": " + t,
+    expFallback:  ac => "The check passes: " + ac + " is fulfilled and no error message is shown.",
+    sufNegative:  " – invalid input",
+    descNegative: (k, ac) => "Negative check for " + k + " – " + ac + ": the system rejects input outside the valid partition.",
+    actNegative:  " — using a value from the invalid equivalence class",
+    expNegative:  "The action is rejected, the record is not saved, and a clear validation message names the offending field.",
+    sufBoundary:  " – boundary values",
+    descBoundary: (k, ac, b) => "Boundary analysis for " + k + " – " + ac + (b ? " (limits found: " + b + ")" : ""),
+    sufRoles:     " – permission matrix",
+    descRoles:    (k, ac) => "Role and permission coverage for " + k + " – " + ac + ". One row per role of the decision table.",
+    preRoles:     ac => "A user account exists for every role named in " + ac + ".",
+    actRoleOk:    (ac, a) => "Sign in as the role that IS entitled by " + ac + ", then: " + a,
+    expRoleOk:    "The action succeeds.",
+    actRoleNo:    ac => "Sign in as a role that is NOT entitled by " + ac + ", then attempt the same action",
+    expRoleNo:    "The action is blocked and no data is changed.",
+    sufE2E:       " – end-to-end flow",
+    descE2E:      (k, s) => "End-to-end flow covering every acceptance criterion of " + k + ": " + s,
+    expE2E:       (ac, t) => ac + " is satisfied: " + t,
+    defaultPre:   (m, k) => "The user is signed in" + (m ? " and " + m + " is reachable" : "") + ". Test data for " + k + " is prepared.",
+    bvaBelow:     v => " — with the value " + v + " (just below the lower limit)",
+    bvaLow:       v => " — with the value " + v + " (lower limit)",
+    bvaHigh:      v => " — with the value " + v + " (upper limit)",
+    bvaAbove:     v => " — with the value " + v + " (just above the upper limit)",
+    bvaGeneric:   " — at the minimum, the maximum and the values just outside",
+    expRejected:  "The value is rejected with a validation message.",
+    expAccepted:  "The value is accepted.",
+    expRange:     "Values inside the range are accepted; values outside are rejected with a validation message.",
+    typeFunctional: "Functional", typeE2E: "End-to-End", statusNew: "New",
+    prios: ["High", "Medium", "Low"]
+  },
+  de: {
+    checkThat:    x => "Prüfen: " + x,
+    descPositive: (k, ac, t) => "Prüft " + k + " – " + ac + ": " + t,
+    expFallback:  ac => "Die Prüfung ist erfolgreich: " + ac + " ist erfüllt und es wird keine Fehlermeldung angezeigt.",
+    sufNegative:  " – ungültige Eingabe",
+    descNegative: (k, ac) => "Negativtest zu " + k + " – " + ac + ": das System weist Eingaben außerhalb der gültigen Äquivalenzklasse ab.",
+    actNegative:  " — mit einem Wert aus der ungültigen Äquivalenzklasse",
+    expNegative:  "Die Aktion wird abgewiesen, der Datensatz wird nicht gespeichert und eine eindeutige Fehlermeldung benennt das betroffene Feld.",
+    sufBoundary:  " – Grenzwerte",
+    descBoundary: (k, ac, b) => "Grenzwertanalyse zu " + k + " – " + ac + (b ? " (gefundene Grenzen: " + b + ")" : ""),
+    sufRoles:     " – Berechtigungsmatrix",
+    descRoles:    (k, ac) => "Rollen- und Berechtigungsabdeckung zu " + k + " – " + ac + ". Je eine Zeile pro Rolle der Entscheidungstabelle.",
+    preRoles:     ac => "Für jede in " + ac + " genannte Rolle existiert ein Benutzerkonto.",
+    actRoleOk:    (ac, a) => "Mit der laut " + ac + " berechtigten Rolle anmelden, dann: " + a,
+    expRoleOk:    "Die Aktion wird erfolgreich ausgeführt.",
+    actRoleNo:    ac => "Mit einer laut " + ac + " nicht berechtigten Rolle anmelden und dieselbe Aktion versuchen",
+    expRoleNo:    "Die Aktion wird blockiert und es werden keine Daten geändert.",
+    sufE2E:       " – End-to-End-Ablauf",
+    descE2E:      (k, s) => "End-to-End-Ablauf über alle Abnahmekriterien von " + k + ": " + s,
+    expE2E:       (ac, t) => ac + " ist erfüllt: " + t,
+    defaultPre:   (m, k) => "Der Benutzer ist angemeldet" + (m ? " und " + m + " ist erreichbar" : "") + ". Die Testdaten für " + k + " sind vorbereitet.",
+    bvaBelow:     v => " — mit dem Wert " + v + " (knapp unter der Untergrenze)",
+    bvaLow:       v => " — mit dem Wert " + v + " (Untergrenze)",
+    bvaHigh:      v => " — mit dem Wert " + v + " (Obergrenze)",
+    bvaAbove:     v => " — mit dem Wert " + v + " (knapp über der Obergrenze)",
+    bvaGeneric:   " — mit dem Minimum, dem Maximum und den Werten knapp außerhalb",
+    expRejected:  "Der Wert wird mit einer Fehlermeldung abgewiesen.",
+    expAccepted:  "Der Wert wird akzeptiert.",
+    expRange:     "Werte innerhalb des Bereichs werden akzeptiert, Werte außerhalb mit einer Fehlermeldung abgewiesen.",
+    typeFunctional: "Funktionstest", typeE2E: "End-to-End", statusNew: "Neu",
+    prios: ["Hoch", "Mittel", "Niedrig"]
+  }
+};
+const p = lang => P[lang] || P.en;
+
+/* ------------------------------------------------------------ generation */
+const TRIGGER_SPLIT = /\s+(?:then|so that|results in|führt zu|fuehrt zu|,\s*dann|dann|→|->|=>)\s+/i;
+const WHEN_LEAD = /^(when|if|once|as soon as|wenn|falls|sobald|nachdem)\b[\s:]+/i;
+// Only strips a lead-in when the modal verb is actually there, so a plain sentence survives intact.
+const REQ_LEAD = /^(?:(?:the system|das system|the user|der benutzer|the application|die anwendung)\s*,?\s*(?:shall|should|must|can|will|muss|soll|sollte|kann|wird|darf)\s+|as an?\s[^,]{1,40},\s*i\s+(?:want|would like)\s+to\s+|als\s[^,]{1,40},\s*(?:möchte|moechte)\s+ich\s+)/i;
+
+function acToStep(ac, lang) {
+  if (ac.gherkin && ac.gherkin.length) {
+    const g = { given: [], when: [], then: [] };
+    let mode = "given";
+    ac.gherkin.forEach(l => {
+      const m = l.match(/^(given|angenommen|gegeben\s+sei|when|wenn|then|dann|and|und|but|aber)\b[\s:]*/i);
+      const head = m ? m[1].toLowerCase() : "";
+      const rest = clean(l.replace(/^(given|angenommen|gegeben\s+sei|when|wenn|then|dann|and|und|but|aber)\b[\s:]*/i, ""));
+      if (/^(given|angenommen|gegeben)/.test(head)) mode = "given";
+      else if (/^(when|wenn)/.test(head)) mode = "when";
+      else if (/^(then|dann)/.test(head)) mode = "then";
+      if (rest) g[mode].push(rest);
+    });
+    return {
+      precondition: g.given.join("; "),
+      action: titlecase(g.when.join("; ")) || titlecase(ac.text),
+      expected: titlecase(g.then.join("; ")) || "",
+      complete: g.when.length > 0 && g.then.length > 0
+    };
+  }
+
+  const text = ac.text;
+  const parts = text.split(TRIGGER_SPLIT);
+  if (parts.length >= 2) {
+    return {
+      precondition: "",
+      action: titlecase(clean(parts[0]).replace(WHEN_LEAD, "").replace(REQ_LEAD, "")),
+      expected: titlecase(clean(parts.slice(1).join(" "))),
+      complete: true
+    };
+  }
+  const wm = text.match(/^(?:when|if|once|wenn|falls|sobald)\b[\s:]+(.+?)[,;]\s*(.+)$/i);
+  if (wm) return { precondition: "", action: titlecase(clean(wm[1])), expected: titlecase(clean(wm[2])), complete: true };
+
+  const stripped = clean(text.replace(REQ_LEAD, "")) || text;
+  return {
+    precondition: "",
+    action: p(lang).checkThat(stripped),
+    expected: "",
+    complete: false
+  };
+}
+
+function applyNamePattern(pattern, ctx) {
+  const out = String(pattern || "{TITLE}")
+    .replace(/\{AREA\}/g, ctx.area || "")
+    .replace(/\{PREFIX\}/g, ctx.prefix || "")
+    .replace(/\{MODULE\}/g, ctx.module || "")
+    .replace(/\{REQ\}/g, ctx.req || "")
+    .replace(/\{TYPE\}/g, ctx.type || "")
+    .replace(/\{TITLE\}/g, ctx.title || "");
+  return clean(out.replace(/__+/g, "_").replace(/^[_\-\s]+|[_\-\s]+$/g, "").replace(/\[\s*\]/g, ""));
+}
+
+let draftSeq = 0;
+function newDraft(fields) {
+  draftSeq++;
+  return Object.assign({
+    uid: "D" + Date.now().toString(36) + "-" + draftSeq,
+    review: "draft",          // where the draft stands with you
+    status: "New",            // the qTest Status field
+    lang: "en",               // language the scaffolding was written in
+    extra: {},                // your project's own qTest fields
+    needsWording: false,
+    steps: []
+  }, fields, { extra: Object.assign({}, fields && fields.extra) });
+}
+
+function generateFor(req) {
+  const conv = S.conventions || {};
+  const lang = genLangFor(req);
+  const L = p(lang);
+  const matches = matchesFor(req, 5);
+  const chosen = req.selectedTemplate
+    ? (matches.find(m => m.tc.tcid === req.selectedTemplate) || matches[0])
+    : matches[0];
+  const template = chosen && chosen.score >= S.gen.minScore ? chosen.tc : null;
+  const templateScore = chosen ? chosen.score : 0;
+
+  const module = (template && template.module) || clean(req.components.split(",")[0]) || (conv.modules && conv.modules[0]) || "";
+  const extra = {};
+  (conv.extra || []).forEach(f => { if (f.fill >= 0.4 && f.top) extra[f.name] = f.top; });
+
+  const area = (template && template.area) || req.area || "";
+  const base = {
+    module,
+    area,
+    path: (template && template.path) || "",
+    lang,
+    extra: extra,
+    priority: mapPriority(req.priority, conv, lang),
+    status: conv.defaultStatus || L.statusNew,
+    requirement: req.key,
+    tags: template ? template.tags : "",
+    templateId: template ? template.tcid : "",
+    templateName: template ? template.name : "",
+    templateScore: Math.round(templateScore * 100)
+  };
+
+  const preamble = (S.gen.usePreamble && conv.preamble) ? conv.preamble : [];
+  const epilogue = (S.gen.useEpilogue && conv.epilogue) ? conv.epilogue : [];
+  const pre = () => preamble.map(s => ({ action: s.action, expected: s.expected, origin: "archive" }));
+  const post = () => epilogue.map(s => ({ action: s.action, expected: s.expected, origin: "archive" }));
+
+  const nameOf = (title, type) => applyNamePattern(S.gen.namePattern || conv.namePattern, {
+    prefix: conv.prefix, module: module, area: area, req: req.key, type: type, title: title
+  });
+
+  const out = [];
+  const precondFromTemplate = template ? template.precondition : "";
+
+  req.ac.forEach((ac, i) => {
+    const step = acToStep(ac, lang);
+    const acLabel = "AC" + (i + 1);
+    // a Gherkin block reads best when the When clause names the case
+    const titleSrc = ac.gherkin && step.action ? step.action : ac.text;
+
+    if (S.gen.positive) {
+      out.push(newDraft(Object.assign({}, base, {
+        name: nameOf(shortTitle(titleSrc), "Positive"),
+        type: pickType(conv, "positive", lang),
+        technique: ac.techniques.find(k => k === "dt" || k === "st") || "ep",
+        acRef: acLabel,
+        description: L.descPositive(req.key, acLabel, ac.text),
+        precondition: [step.precondition, precondFromTemplate].filter(Boolean).join("\n") || L.defaultPre(module, req.key),
+        needsWording: !step.complete,
+        steps: pre().concat([{
+          action: step.action,
+          expected: step.expected || L.expFallback(acLabel)
+        }]).concat(post())
+      })));
+    }
+
+    if (S.gen.negative && ac.techniques.indexOf("epInvalid") >= 0) {
+      out.push(newDraft(Object.assign({}, base, {
+        name: nameOf(shortTitle(titleSrc) + L.sufNegative, "Negative"),
+        type: pickType(conv, "negative", lang),
+        technique: "epInvalid",
+        acRef: acLabel,
+        description: L.descNegative(req.key, acLabel),
+        precondition: precondFromTemplate || L.defaultPre(module, req.key),
+        needsWording: true,
+        steps: pre().concat([{
+          action: step.action + L.actNegative,
+          expected: L.expNegative
+        }]).concat(post())
+      })));
+    }
+
+    if (S.gen.boundary && ac.techniques.indexOf("bva") >= 0) {
+      const b = extractBounds(ac.text);
+      out.push(newDraft(Object.assign({}, base, {
+        name: nameOf(shortTitle(titleSrc) + L.sufBoundary, "Boundary"),
+        type: pickType(conv, "positive", lang),
+        technique: "bva",
+        acRef: acLabel,
+        description: L.descBoundary(req.key, acLabel, b.join(", ")),
+        precondition: precondFromTemplate || L.defaultPre(module, req.key),
+        needsWording: !b.length,
+        steps: pre().concat(boundarySteps(step, b, lang)).concat(post())
+      })));
+    }
+
+    if (S.gen.roles && ac.techniques.indexOf("dt") >= 0) {
+      out.push(newDraft(Object.assign({}, base, {
+        name: nameOf(shortTitle(titleSrc) + L.sufRoles, "Roles"),
+        type: pickType(conv, "positive", lang),
+        technique: "dt",
+        acRef: acLabel,
+        description: L.descRoles(req.key, acLabel),
+        precondition: L.preRoles(acLabel),
+        needsWording: true,
+        steps: pre().concat([
+          { action: L.actRoleOk(acLabel, step.action), expected: step.expected || L.expRoleOk },
+          { action: L.actRoleNo(acLabel), expected: L.expRoleNo }
+        ]).concat(post())
+      })));
+    }
+  });
+
+  if (S.gen.e2e && req.ac.length >= 2) {
+    const e2eTemplate = S.archive
+      .map(tc => ({ tc, s: scoreMatch(req, tc) + (/e2e|end.?to.?end|integration|prozess|process|ablauf/i.test(tc.type + " " + tc.name) ? 0.25 : 0) }))
+      .sort((a, b) => b.s - a.s)[0];
+    const tpl = e2eTemplate ? e2eTemplate.tc : null;
+    out.push(newDraft(Object.assign({}, base, {
+      name: nameOf(shortTitle(req.summary) + L.sufE2E, "E2E"),
+      type: pickType(conv, "e2e", lang),
+      technique: "uc",
+      acRef: "AC1–AC" + req.ac.length,
+      description: L.descE2E(req.key, clean(req.summary)),
+      precondition: (tpl && tpl.precondition) || L.defaultPre(module, req.key),
+      templateId: tpl ? tpl.tcid : base.templateId,
+      templateName: tpl ? tpl.name : base.templateName,
+      needsWording: false,
+      steps: pre().concat(req.ac.map((ac, i) => {
+        const s = acToStep(ac, lang);
+        return { action: s.action, expected: s.expected || L.expE2E("AC" + (i + 1), ac.text) };
+      })).concat(post())
+    })));
+  }
+
+  return out;
+}
+
+function shortTitle(text) {
+  let t = clean(text).replace(REQ_LEAD, "").replace(/^(that|dass)\s+/i, "");
+  t = t.split(TRIGGER_SPLIT)[0];
+  if (t.length > 60) t = t.slice(0, 57).replace(/\s+\S*$/, "") + "…";
+  return titlecase(t);
+}
+function mapPriority(jiraPrio, conv, lang) {
+  const list = (conv.priorities && conv.priorities.length) ? conv.priorities : p(lang).prios;
+  const prio = (jiraPrio || "").toLowerCase();
+  const find = re => list.find(v => re.test(v));
+  if (/blocker|highest|critical|kritisch/.test(prio)) return find(/1|crit|high|hoch/i) || list[0];
+  if (/high|hoch|major/.test(prio)) return find(/high|hoch|2/i) || conv.defaultPriority || list[0];
+  if (/low|niedrig|minor|trivial/.test(prio)) return find(/low|niedrig|4|3/i) || list[list.length - 1];
+  return conv.defaultPriority || list[Math.floor(list.length / 2)] || list[0];
+}
+function pickType(conv, kind, lang) {
+  const list = conv.types || [];
+  const by = re => list.find(v => re.test(v));
+  if (kind === "e2e") return by(/e2e|end.?to.?end|integration|system|prozess/i) || conv.defaultType || p(lang).typeE2E;
+  if (kind === "negative") return by(/negativ|error|fehler/i) || conv.defaultType || p(lang).typeFunctional;
+  return by(/funktion|functional|manual|manuell/i) || conv.defaultType || p(lang).typeFunctional;
+}
+function extractBounds(text) {
+  const nums = (text.match(/\b\d+(?:[.,]\d+)?\b/g) || []).map(n => n.replace(",", "."));
+  return uniq(nums).slice(0, 4);
+}
+function boundarySteps(step, bounds, lang) {
+  const L = p(lang);
+  if (!bounds.length) return [{ action: step.action + L.bvaGeneric, expected: L.expRange }];
+  const lo = Number(bounds[0]), hi = Number(bounds[bounds.length - 1]);
+  const s = [];
+  if (!isNaN(lo)) {
+    s.push({ action: step.action + L.bvaBelow(lo - 1), expected: L.expRejected });
+    s.push({ action: step.action + L.bvaLow(lo), expected: L.expAccepted });
+  }
+  if (!isNaN(hi) && hi !== lo) {
+    s.push({ action: step.action + L.bvaHigh(hi), expected: L.expAccepted });
+    s.push({ action: step.action + L.bvaAbove(hi + 1), expected: L.expRejected });
+  }
+  return s;
+}
+
+function runGeneration(onlyKey) {
+  if (!S.requirements.length) { toast("Import requirements first."); return; }
+  buildIdf();
+  deriveConventions();
+  const targets = onlyKey ? S.requirements.filter(r => r.key === onlyKey) : S.requirements;
+  const keys = new Set(targets.map(r => r.key));
+  // keep manually approved work, replace untouched drafts
+  const kept = S.drafts.filter(d => !keys.has(d.requirement) || d.review === "approved");
+  const fresh = [];
+  targets.forEach(r => generateFor(r).forEach(d => fresh.push(d)));
+  S.drafts = kept.concat(fresh);
+  save();
+  toast(fresh.length + " draft test case" + (fresh.length === 1 ? "" : "s") + " forged.");
+}
+
+/* ------------------------------------------------------------- exporting */
+/* Columns are written with your archive's own labels where we know them, so the
+   qTest mapping wizard shows exactly the names your project already uses. */
+
+const CORE_FIELDS = ["tcid","name","description","precondition","area","module","type","priority","status","tags","stepNo","stepAction","stepExpected"];
+const FALLBACK_LABEL = {
+  en: { tcid:"Id", name:"Name", description:"Description", precondition:"Precondition", area:"Area", module:"Module",
+        type:"Type", priority:"Priority", status:"Status", tags:"Tags",
+        stepNo:"Test Step #", stepAction:"Test Step Description", stepExpected:"Test Step Expected Result" },
+  de: { tcid:"Id", name:"Name", description:"Kurzbeschreibung", precondition:"Vorbedingung", area:"Bereich", module:"Modul",
+        type:"Type", priority:"Priorität", status:"Status", tags:"Stichworte",
+        stepNo:"Testschritt-Nr.", stepAction:"Testschritt-Beschreibung", stepExpected:"Erwartetes Ergebnis" }
+};
+const TRACE_LABEL = {
+  en: { trace: ["Requirement","Acceptance Criterion","Test Design Technique","Derived From (archive)"],
+        matrix:["Requirement","Summary","Fix Version","Acceptance Criterion","AC Text","Test Case","Technique","Review","Derived From"] },
+  de: { trace: ["Anforderung","Abnahmekriterium","Testentwurfsverfahren","Abgeleitet aus (Archiv)"],
+        matrix:["Anforderung","Titel","Fix Version","Abnahmekriterium","Kriteriumstext","Testfall","Verfahren","Review","Abgeleitet aus"] }
+};
+
+const archiveLabels = () => (S.archiveHeaders && S.archiveHeaders.labels) || {};
+function headerLang() {
+  return (S.exp.headerLang === "de" || S.exp.headerLang === "en") ? S.exp.headerLang : genLangFor(null);
+}
+/* A column your archive did not have still has to match the labels it did have,
+   so an English export never grows a lone "Vorbedingung". */
+function archiveLabelLang() {
+  const lbl = archiveLabels();
+  let de = 0, en = 0;
+  Object.keys(lbl).forEach(f => {
+    const v = norm(lbl[f]);
+    if (FALLBACK_LABEL.de[f] && norm(FALLBACK_LABEL.de[f]) === v) de++;
+    if (FALLBACK_LABEL.en[f] && norm(FALLBACK_LABEL.en[f]) === v) en++;
+  });
+  return de > en ? "de" : "en";
+}
+function coreFields() {
+  // the keyword column is only written when your archive actually had one
+  const anyArea = S.archive.some(c => c.area) || S.drafts.some(d => d.area);
+  return CORE_FIELDS.filter(f =>
+    (f !== "tags" || archiveLabels().tags) && (f !== "area" || anyArea));
+}
+function labelFor(field) {
+  if (S.exp.headerLang === "archive") {
+    const own = archiveLabels()[field];
+    return own || FALLBACK_LABEL[archiveLabelLang()][field];
+  }
+  return FALLBACK_LABEL[headerLang()][field];
+}
+const traceLabels = which =>
+  TRACE_LABEL[S.exp.headerLang === "archive" ? archiveLabelLang() : headerLang()][which];
+
+function exportedDrafts() {
+  return S.exp.onlyApproved ? S.drafts.filter(d => d.review === "approved") : S.drafts.filter(d => d.review !== "rejected");
+}
+function customFieldNames() {
+  return S.exp.customFields ? ((S.conventions && S.conventions.extra) || []).filter(f => f.fill >= 0.2).map(f => f.name) : [];
+}
+
+/* After the tree reorganisation the module IS the path, so the Module column
+   can carry it whole. The separator is configurable because whether qTest
+   splits it into sub-modules depends on the import settings. */
+function moduleCell(d) {
+  if (S.exp.modulePath && d.path) {
+    return String(d.path).split(">").map(x => clean(x)).filter(Boolean).join(S.exp.pathSep);
+  }
+  return d.module || "";
+}
+
+/* A typo in a 60-character path does not fail the import — it quietly creates a
+   stray module in qTest. Once the tree is known, every path can be checked. */
+function unknownPaths() {
+  if (!S.moduleTree || !S.moduleTree.length) return [];
+  const known = {};
+  S.moduleTree.forEach(x => { known[clean(x)] = true; });
+  return uniq(exportedDrafts().map(d => clean(d.path)).filter(x => x && !known[x]));
+}
+
+function buildQTestRows() {
+  const fields = coreFields();
+  const custom = customFieldNames();
+  const rows = [fields.map(labelFor).concat(custom).concat(S.exp.traceability ? traceLabels("trace") : [])];
+
+  exportedDrafts().forEach(d => {
+    const steps = d.steps.length ? d.steps : [{ action: "", expected: "" }];
+    steps.forEach((s, i) => {
+      const first = i === 0;
+      const r = fields.map(f => {
+        if (f === "stepNo") return String(i + 1);
+        if (f === "stepAction") return s.action;
+        if (f === "stepExpected") return s.expected;
+        if (f === "tcid") return "";                                   // empty => qTest creates a new case
+        if (f === "name") return (first || S.exp.repeatName) ? d.name : "";
+        if (f === "module") return first ? moduleCell(d) : "";
+        return first ? (d[f] || "") : "";
+      });
+      custom.forEach(name => r.push(first ? ((d.extra && d.extra[name]) || "") : ""));
+      if (S.exp.traceability) r.push(
+        first ? d.requirement : "",
+        first ? (d.acRef || "") : "",
+        first ? techName(d.technique, d.lang || "en") : "",
+        first ? (d.templateId ? d.templateId + " · " + d.templateName : "") : ""
+      );
+      rows.push(r);
+    });
+  });
+  return rows;
+}
+
+function buildTraceRows() {
+  const rows = [traceLabels("matrix")];
+  S.requirements.forEach(r => {
+    const mine = S.drafts.filter(d => d.requirement === r.key && d.review !== "rejected");
+    if (!mine.length) {
+      rows.push([r.key, r.summary, r.fixVersion || "", "", "", "— NO COVERAGE —", "", "gap", ""]);
+      return;
+    }
+    mine.forEach(d => {
+      const acIdx = d.acRef && /^AC(\d+)/.test(d.acRef) ? Number(RegExp.$1) - 1 : -1;
+      rows.push([r.key, r.summary, r.fixVersion || "", d.acRef || "",
+                 acIdx >= 0 && r.ac[acIdx] ? r.ac[acIdx].text : "",
+                 d.name, techName(d.technique, d.lang || "en"), d.review, d.templateId || ""]);
+    });
+  });
+  return rows;
+}
+
+/* --------------------------------------------- Tosca automation spec */
+/* A manual step is prose; a Tosca TestStepValue is a triple of control,
+   ActionMode and value. This reads the prose into those triples so the
+   automation engineer starts from a filled sheet instead of a blank one.
+   The column layout is provisional until it is checked against the project's
+   own Tosca import — the analysis below does not depend on that. */
+
+const TOSCA_VERBS = [
+  { mode: "Buffer", re: /\b(merken|notieren|puffern|zwischenspeichern|buffer|remember|note down|wird vergeben|wird erzeugt|wird generiert)\b/i },
+  { mode: "Verify", re: /\b(prüfen|pruefen|prüfung|kontrollieren|verifizieren|wird angezeigt|werden angezeigt|angezeigt|erscheint|enthält|enthaelt|verify|check|assert|is displayed|are displayed|shows|contains)\b/i },
+  { mode: "Input",  re: /\b(eingeben|eingabe|erfassen|eintragen|ausfüllen|ausfuellen|setzen|pflegen|hinterlegen|enter|type|fill|input)\b/i },
+  { mode: "WaitOn", re: /\b(warten|abwarten|wait for|wait until)\b/i },
+  { mode: "Select", re: /\b(auswählen|auswaehlen|wählen|waehlen|klicken|anklicken|drücken|druecken|aufrufen|öffnen|oeffnen|starten|navigieren|markieren|ankreuzen|häkchen|haekchen|select|click|press|choose|open|navigate|tick)\b/i }
+];
+const TOSCA_MODULE_HINT  = /\b(?:transaktion|transaction|anwendung|modul|module|maske|screen|seite|page|kachel|tile|dialog|fenster|window)\s+([A-ZÄÖÜ][\wÄÖÜäöüß./-]*(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß./-]*){0,3})/i;
+const TOSCA_CONTROL_HINT = /\b(?:feld|field|schaltfläche|schaltflaeche|button|checkbox|kontrollkästchen|dropdown|liste|list|spalte|column|register|tab|kachel|tile|eingabefeld)\s+([A-ZÄÖÜ][\wÄÖÜäöüß./-]*(?:[ -][A-ZÄÖÜ][\wÄÖÜäöüß./-]*){0,3})/i;
+const TOSCA_QUOTED = /["“„»']([^"“”„«»']{2,60})["”“«»']/;
+
+/* one step cell often holds a small bullet list; each line is its own value */
+function toscaLines(text) {
+  return String(text || "")
+    .split(/\r?\n|(?:^|\s)[•‣]\s*/)
+    .map(l => clean(l).replace(/^[-–*]\s*/, ""))
+    .filter(l => l.length > 1);
+}
+function toscaMode(line, fallback) {
+  for (let i = 0; i < TOSCA_VERBS.length; i++) if (TOSCA_VERBS[i].re.test(line)) return TOSCA_VERBS[i].mode;
+  return fallback;
+}
+/* "Sortierung=Titel" is already a control/value pair */
+function toscaPairs(line) {
+  const out = [];
+  line.split(/;\s+/).forEach(part => {
+    const m = part.match(/^([^=]{1,60}?)\s*=\s*(.+)$/);
+    if (m && !/^https?:/i.test(part)) out.push({ control: clean(m[1]).replace(/^[-–*]\s*/, ""), value: clean(m[2]) });
+  });
+  return out;
+}
+const TOSCA_NOISE = /^(der|die|das|den|dem|des|ein|eine|einen|einem|einer|the|a|an|es|im|in|bei|mit|für|fuer|nach|von|vom|auf|aus|alle|kein|keine|und|oder|wird|werden|prüfen|pruefen|prüfung|kontrolle|aufrufen|auswahl|auswählen|auswaehlen|klick|klicken|eingeben|eingabe|öffnen|oeffnen|starten|anzeige|check|verify|open|select|click|enter|input|display)$/i;
+
+function toscaControl(line) {
+  let m = line.match(TOSCA_CONTROL_HINT); if (m) return clean(m[1]);
+  m = line.match(TOSCA_QUOTED);           if (m) return clean(m[1]);
+  m = line.match(TOSCA_MODULE_HINT);      if (m) return clean(m[1]);
+  // otherwise the first capitalised word that is not an article or the verb
+  const words = line.match(/[A-ZÄÖÜ][\wÄÖÜäöüß-]{2,}/g) || [];
+  for (let i = 0; i < words.length; i++) {
+    if (TOSCA_NOISE.test(words[i])) continue;
+    const next = words[i + 1];
+    // "Kompletter Nachrichteninhalt" — the adjective is capitalised, the noun follows
+    if (next && /(er|es)$/.test(words[i]) && words[i].length >= 6 &&
+        line.indexOf(words[i] + " " + next) >= 0 && !TOSCA_NOISE.test(next)) return next;
+    return words[i];
+  }
+  return "";
+}
+function toscaValue(line, mode) {
+  const q = line.match(TOSCA_QUOTED);
+  if (q) return clean(q[1]);
+  const num = line.match(/\b(\d+(?:[.,]\d+)?)\b/);
+  if (mode === "Input" && num) return num[1];
+  return "";            // left for the engineer rather than inventing Tosca syntax
+}
+
+/* Every value row a single manual step implies. ctx carries the module
+   forward, the way a Tosca test case stays inside a module until it moves. */
+function toscaStepRows(step, ctx) {
+  const rows = [];
+  const mm = clean(step.action).match(TOSCA_MODULE_HINT);
+  if (mm) ctx.module = clean(mm[1]);
+
+  const emit = (line, forced, fallback) => {
+    const pairs = toscaPairs(line);
+    if (pairs.length) {
+      pairs.forEach(pr => rows.push({ module: ctx.module, control: pr.control, mode: forced || toscaMode(line, "Input"), value: pr.value, source: line }));
+      return;
+    }
+    const mode = forced || toscaMode(line, fallback);
+    rows.push({ module: ctx.module, control: toscaControl(line), mode: mode, value: toscaValue(line, mode), source: line });
+  };
+
+  toscaLines(step.action).forEach((line, i) => emit(line, null, i === 0 ? "Select" : "Input"));
+  toscaLines(step.expected).forEach(line => emit(line, "Verify"));
+  return rows;
+}
+
+const TOSCA_COLUMNS = ["TestCase","Folder","TestStep #","TestStep","Module","Control","ActionMode","Value","Source sentence","Origin"];
+
+function buildToscaRows() {
+  const rows = [TOSCA_COLUMNS];
+  exportedDrafts().forEach(d => {
+    const ctx = { module: d.module || "" };
+    d.steps.forEach((s, i) => {
+      const values = toscaStepRows(s, ctx);
+      const stepName = clean(s.action).slice(0, 80) || ("Step " + (i + 1));
+      if (!values.length) {
+        rows.push([d.name, d.module || "", String(i + 1), stepName, ctx.module, "", "Select", "", clean(s.action), d.templateId || d.requirement || ""]);
+        return;
+      }
+      values.forEach((v, j) => rows.push([
+        j === 0 ? d.name : "",
+        j === 0 ? (d.module || "") : "",
+        j === 0 ? String(i + 1) : "",
+        j === 0 ? stepName : "",
+        v.module, v.control, v.mode, v.value, v.source,
+        j === 0 ? (d.templateId || d.requirement || "") : ""
+      ]));
+    });
+  });
+  return rows;
+}
+
+/* Turn a manual test case straight from the archive into a draft, so an
+   existing qTest case can be carried over to Tosca without a requirement. */
+function draftFromArchiveCase(c) {
+  return newDraft({
+    name: c.name,
+    area: c.area || "",
+    path: c.path || "",
+    module: c.module,
+    type: c.type,
+    priority: c.priority,
+    status: c.status,
+    tags: c.tags,
+    lang: detectLang(archiveText(c)),
+    requirement: c.requirement || "",
+    acRef: "",
+    technique: "uc",
+    description: c.description,
+    precondition: c.precondition,
+    templateId: c.tcid,
+    templateName: c.name,
+    templateScore: 100,
+    origin: "archive",
+    extra: Object.assign({}, c.extra),
+    steps: c.steps.map(s => ({ action: s.action, expected: s.expected }))
+  });
+}
+
+function convertArchiveCases(list) {
+  if (!list.length) { toast("Nothing to convert."); return; }
+  const have = {};
+  S.drafts.forEach(d => { if (d.origin === "archive") have[d.templateId] = true; });
+  const fresh = list.filter(c => !have[c.tcid]).map(draftFromArchiveCase);
+  if (!fresh.length) { toast("Those cases are already in Review."); return; }
+  S.drafts = S.drafts.concat(fresh);
+  S.stage = "review";
+  save(); renderAll();
+  toast(fresh.length + " manual case" + (fresh.length === 1 ? "" : "s") + " carried over — review, then export as a Tosca spec.");
+}
+
+function copyText(text) {
+  const done = () => toast("Copied to clipboard.");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = el("textarea", { style: "position:fixed;opacity:0;top:0;left:0" });
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) { toast("Copy blocked — select the text and copy manually."); }
+  ta.remove();
+}
+function trySave(filename, text) {
+  try {
+    const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    const a = el("a", { href: URL.createObjectURL(blob), download: filename });
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast("Saving " + filename + " — if nothing appears, use Copy instead.");
+  } catch (e) { toast("Download blocked here — use Copy instead."); }
+}
+
+/* ============================================================ RENDERING */
+
+const STAGES = [
+  { id: "archive",      label: "Knowledge Base", count: () => S.archive.length + S.history.length },
+  { id: "requirements", label: "New Requirements", count: () => S.requirements.length },
+  { id: "match",        label: "Match",        count: () => S.archive.length && S.requirements.length ? S.requirements.length : 0 },
+  { id: "generate",     label: "Generate",     count: () => S.drafts.length },
+  { id: "review",       label: "Review",       count: () => S.drafts.filter(d => d.review === "approved").length },
+  { id: "export",       label: "Export",       count: () => exportedDrafts().length }
+];
+
+function renderRail() {
+  const rail = $("#rail");
+  rail.textContent = "";
+  STAGES.forEach((s, i) => {
+    const n = s.count();
+    rail.appendChild(el("button", {
+      class: "stage", type: "button", "aria-current": S.stage === s.id ? "true" : "false",
+      onclick: () => { S.stage = s.id; renderAll(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    }, [
+      el("span", { class: "num", text: String(i + 1) }),
+      el("span", { class: "lbl", text: s.label }),
+      el("span", { class: "cnt", text: n ? String(n) : "" })
+    ]));
+  });
+}
+
+function renderKpis() {
+  const box = $("#kpis");
+  box.textContent = "";
+  const acTotal = S.requirements.reduce((n, r) => n + r.ac.length, 0);
+  const acCovered = new Set();
+  S.drafts.filter(d => d.review !== "rejected").forEach(d => {
+    if (d.acRef && /^AC(\d+)$/.test(d.acRef)) acCovered.add(d.requirement + "/" + d.acRef);
+    if (/^AC1–AC(\d+)$/.test(d.acRef || "")) for (let i = 1; i <= Number(RegExp.$1); i++) acCovered.add(d.requirement + "/AC" + i);
+  });
+  const cov = acTotal ? Math.round(acCovered.size / acTotal * 100) : 0;
+  const approved = S.drafts.filter(d => d.review === "approved").length;
+  const needs = S.drafts.filter(d => d.needsWording && d.review === "draft").length;
+  const steps = S.archive.reduce((n, c) => n + c.steps.length, 0);
+
+  const tile = (k, v, n, cls, meter) => {
+    const t = el("div", { class: "kpi " + (cls || "") }, [
+      el("span", { class: "k", text: k }),
+      el("span", { class: "v", text: v }),
+      n ? el("span", { class: "n", text: n }) : null
+    ]);
+    if (meter !== undefined) t.appendChild(el("div", { class: "meter" }, el("i", { style: "width:" + Math.max(2, meter) + "%" })));
+    return t;
+  };
+  const linkedCount = S.history.filter(h => linkedCases(h).length).length;
+  box.appendChild(tile("Knowledge base", String(S.archive.length),
+    S.history.length ? S.history.length + " past requirements, " + linkedCount + " linked" : steps + " steps indexed"));
+  box.appendChild(tile("This release", String(S.requirements.length), acTotal + " acceptance criteria"));
+  box.appendChild(tile("AC coverage", cov + "%", acCovered.size + " of " + acTotal + " covered",
+    cov >= 90 ? "is-good" : cov >= 50 ? "is-warn" : (acTotal ? "is-crit" : ""), cov));
+  box.appendChild(tile("Drafts", String(S.drafts.length), approved + " approved"));
+  box.appendChild(tile("Needs wording", String(needs), needs ? "expected result is generic" : "all drafts have a result", needs ? "is-warn" : "is-good"));
+}
+
+function renderAll() {
+  renderRail(); renderKpis();
+  const p = $("#panel");
+  p.textContent = "";
+  ({ archive: viewArchive, requirements: viewRequirements, match: viewMatch, generate: viewGenerate, review: viewReview, export: viewExport }[S.stage] || viewArchive)(p);
+}
+
+/* --------------------------------------------------------- stage: archive */
+function viewArchive(p) {
+  p.appendChild(head("Knowledge base",
+    "What the tool has to reason from: the test cases you have already written, and the requirements they were written for. Feed it both and a new requirement can be answered with “this is close to LAG-3011, which we covered like this” instead of a keyword guess."));
+
+  const importCard = el("div", { class: "card" }, [
+    el("h3", { text: "Import" }),
+    el("p", { class: "card-sub", text: "The qTest export as .xlsx, or CSV in any delimiter. Import as often as you like — files add to the archive." })
+  ]);
+  // a corporate proxy may block the CDN the spreadsheet reader comes from
+  if (typeof XLSX === "undefined") {
+    importCard.appendChild(el("div", { class: "note warn", html: "<strong>Excel files cannot be read here.</strong><br>The spreadsheet reader did not load, most likely because this network blocks cdnjs.cloudflare.com. In qTest choose <em>Save as</em> → CSV, or open the .xlsx in Excel and save it as CSV — everything else works unchanged." }));
+  }
+  const file = el("input", { type: "file", id: "arc-file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt", multiple: true });
+  file.addEventListener("change", async e => {
+    const files = Array.from(e.target.files || []);
+    let added = 0;
+    for (const f of files) {
+      let tables;
+      try { tables = await readTables(f); }
+      catch (err) { toast("Could not read " + f.name + ": " + err.message); continue; }
+      const path = clean(S.importPath) || areaFromFile(f.name);
+      const area = pathLeaf(path);
+      for (const t of tables) {
+        const { cases, headers, labels, runExport, extraHeaders } =
+          ingestArchiveRows(t.rows, moduleFromSheet(t.sheet));
+        cases.forEach(c => { c.area = area; c.path = path; });
+        S.archive = S.archive.concat(cases);
+        added += cases.length;
+        if (!S.archiveHeaders) S.archiveHeaders = { list: headers, labels: labels, qtestLike: headers.some(h => /test ?step|testschritt/i.test(h)), extra: [] };
+        S.archiveHeaders.extra = uniq((S.archiveHeaders.extra || []).concat(extraHeaders)).slice(0, 30);
+        if (runExport) S.archiveHeaders.runExport = true;
+      }
+    }
+    afterArchiveChange(added, files.length);
+    e.target.value = "";
+  });
+  const known = uniq((S.moduleTree || []).concat((S.conventions && S.conventions.paths) || []));
+  const dl = el("datalist", { id: "path-list" }, known.map(x => el("option", { value: x })));
+  const pathIn = el("input", {
+    type: "text", id: "import-path", value: S.importPath, list: "path-list",
+    placeholder: "Anwendungen > Bibliothekssysteme > Katalogverwaltung"
+  });
+  pathIn.addEventListener("input", e => { S.importPath = e.target.value; save(); });
+
+  const treeText = el("textarea", {
+    id: "tree-paste", style: "min-height:150px",
+    placeholder: "Anwendungen\n  Bibliothekssysteme\n    Katalogverwaltung\n      Katalogsuche\n\n…or one path per line: A > B > C"
+  });
+
+  importCard.appendChild(el("div", { class: "stack" }, [
+    el("label", { class: "field" }, [
+      el("span", { text: "Where this import belongs — a node of your qTest module tree" }),
+      pathIn, dl
+    ]),
+    el("details", { class: "raw" }, [
+      el("summary", { text: known.length ? "Module tree — " + known.length + " nodes known" : "Paste your qTest module tree once" }),
+      el("p", { class: "small", text: "Copy the tree out of qTest and paste it here. Indentation builds the hierarchy; a line that already contains “>” is taken as a full path. Every node becomes a suggestion in the field above, so you never type a path twice." }),
+      treeText,
+      el("div", { class: "row", style: "margin-top:8px" }, [
+        el("button", {
+          class: "btn primary sm", type: "button", onclick: () => {
+            const paths = parseModuleTree(treeText.value);
+            if (!paths.length) { toast("Nothing recognised in that text."); return; }
+            S.moduleTree = uniq((S.moduleTree || []).concat(paths));
+            save(); renderAll();
+            toast(paths.length + " nodes read — " + S.moduleTree.length + " known in total.");
+          }
+        }, "Read tree"),
+        S.moduleTree.length ? el("button", {
+          class: "btn ghost sm", type: "button",
+          onclick: () => { S.moduleTree = []; save(); renderAll(); toast("Module tree cleared."); }
+        }, "Forget the tree") : null
+      ])
+    ]),
+    file,
+    el("details", { class: "raw" }, [
+      el("summary", { text: "…or paste the export here" }),
+      el("textarea", { id: "arc-paste", placeholder: "Id;Name;Precondition;Test Step #;Test Step Description;Test Step Expected Result;Module;Type;Priority" }),
+      el("div", { class: "row", style: "margin-top:8px" }, [
+        el("button", {
+          class: "btn primary sm", type: "button", onclick: () => {
+            const t = $("#arc-paste").value;
+            if (!clean(t)) { toast("Nothing pasted yet."); return; }
+            const { cases, headers, labels, runExport, extraHeaders } = ingestArchiveRows(parseDelimited(t));
+            const pastedPath = clean(S.importPath);
+            cases.forEach(c => { c.area = pathLeaf(pastedPath); c.path = pastedPath; });
+            S.archive = S.archive.concat(cases);
+            if (!S.archiveHeaders) S.archiveHeaders = { list: headers, labels: labels, qtestLike: headers.some(h => /test ?step|testschritt/i.test(h)), extra: [] };
+            S.archiveHeaders.extra = uniq((S.archiveHeaders.extra || []).concat(extraHeaders)).slice(0, 30);
+            if (runExport) S.archiveHeaders.runExport = true;
+            afterArchiveChange(cases.length, 1);
+          }
+        }, "Add to archive")
+      ])
+    ])
+  ]));
+
+  const convCard = el("div", { class: "card" }, [el("h3", { text: "Conventions read from your archive" })]);
+  if (!S.conventions) convCard.appendChild(el("p", { class: "small", text: "Import test cases and the app will read your naming pattern, standard steps and field values out of them." }));
+  else {
+    const c = S.conventions;
+    const list = el("div", { class: "stack" });
+    list.appendChild(el("div", { class: "row" }, [
+      el("span", { class: "chip accent", text: "language: " + (LANG_LABEL[c.lang] || c.lang) }),
+      el("span", { class: "chip mono accent", text: "naming: " + c.namePattern }),
+      el("span", { class: "chip mono", text: "default type: " + (c.defaultType || "–") }),
+      el("span", { class: "chip mono", text: "default priority: " + (c.defaultPriority || "–") }),
+      el("span", { class: "chip mono", text: "ø " + c.avgSteps + " steps/case" })
+    ]));
+    if (c.preamble.length) list.appendChild(el("p", { class: "small", html: "<strong>Standard opening steps</strong> found in your archive — reused in every generated case:" }));
+    c.preamble.forEach(s => list.appendChild(el("div", { class: "matchrow" }, [
+      el("span", { class: "nm", text: s.action }),
+      el("span", { class: "score", text: Math.round(s.share * 100) + "% of cases" })
+    ])));
+    if (c.epilogue.length) list.appendChild(el("p", { class: "small", html: "<strong>Standard closing step</strong>:" }));
+    c.epilogue.forEach(s => list.appendChild(el("div", { class: "matchrow" }, [
+      el("span", { class: "nm", text: s.action }),
+      el("span", { class: "score", text: Math.round(s.share * 100) + "% of cases" })
+    ])));
+    convCard.appendChild(list);
+  }
+
+  const histCard = el("div", { class: "card" }, [
+    el("h3", { text: "Past requirements" }),
+    el("p", { class: "card-sub", text: "The tickets your archived cases were written for — same formats as the release import. Linked automatically wherever a case names its issue key." })
+  ]);
+  const histFile = el("input", { type: "file", id: "hist-file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt,.json,.xml", multiple: true });
+  histFile.addEventListener("change", async e => {
+    const files = Array.from(e.target.files || []);
+    let added = 0;
+    for (const f of files) {
+      try {
+        const reqs = await parseRequirementFile(f);
+        const have = {};
+        S.history.forEach(h => { have[h.key] = true; });
+        const fresh = reqs.filter(r => !have[r.key]);
+        S.history = S.history.concat(fresh);
+        added += fresh.length;
+      } catch (err) { toast("Could not read " + f.name + ": " + err.message); }
+    }
+    buildIdf(); save(); renderAll();
+    const linked = S.history.filter(h => linkedCases(h).length).length;
+    toast(added + " past requirement" + (added === 1 ? "" : "s") + " added — " + linked + " of " + S.history.length + " linked to archived cases.");
+    e.target.value = "";
+  });
+  histCard.appendChild(el("div", { class: "stack" }, [histFile]));
+
+  if (S.history.length) {
+    const linked = S.history.filter(h => linkedCases(h).length);
+    histCard.appendChild(el("div", { class: "row", style: "margin-top:10px" }, [
+      el("span", { class: "chip accent mono", text: S.history.length + " requirements" }),
+      el("span", { class: "chip mono " + (linked.length ? "good" : "warn"), text: linked.length + " linked to cases" }),
+      el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.history = []; buildIdf(); save(); renderAll(); } }, "Clear")
+    ]));
+    if (!linked.length) {
+      histCard.appendChild(el("div", { class: "note warn", style: "margin-top:10px", text: "None of them could be linked. A case is linked when its requirement column names the issue key — check that your qTest export includes Anforderung or Test Case Jira Requirement ID." }));
+    }
+    const tw = el("div", { class: "tablewrap", style: "margin-top:10px; max-height:320px; overflow:auto" });
+    const t = el("table");
+    t.appendChild(el("thead", {}, el("tr", {}, ["Key", "Summary", "AC", "Cases"].map(h =>
+      el("th", { text: h, class: (h === "AC" || h === "Cases") ? "num" : "" })))));
+    const tb = el("tbody");
+    S.history.slice(0, 300).forEach(h => {
+      const n = linkedCases(h).length;
+      tb.appendChild(el("tr", {}, [
+        el("td", { class: "id", text: h.key }),
+        el("td", { text: h.summary }),
+        el("td", { class: "num", text: String(h.ac.length) }),
+        el("td", { class: "num" }, el("span", { class: "chip " + (n ? "good" : ""), text: String(n) }))
+      ]));
+    });
+    t.appendChild(tb); tw.appendChild(t); histCard.appendChild(tw);
+  }
+
+  p.appendChild(el("div", { class: "split" }, [importCard, histCard]));
+  p.appendChild(migrationCard());
+  p.appendChild(convCard);
+
+  if (S.archiveHeaders && S.archiveHeaders.runExport) {
+    p.appendChild(el("div", { class: "note warn", html:
+      "<strong>That was a Test Run export.</strong><br>" +
+      "It holds the execution — the Id is the run (TR-…), Status is the result, and there is no Module or Precondition column, " +
+      "so generated cases fall back to a default precondition and an empty module. " +
+      "The step wording and your naming convention are still read from it. " +
+      "For a full archive use <em>Test Design → Export Test Cases</em> instead." }));
+  }
+
+  if (!S.archive.length) {
+    p.appendChild(el("div", { class: "empty" }, [
+      el("p", { text: "The knowledge base has no test cases yet." }),
+      el("div", { class: "row", style: "justify-content:center;margin-top:10px" }, [
+        el("button", { class: "btn sm", type: "button", onclick: loadSample }, "Load a sample knowledge base")
+      ])
+    ]));
+    return;
+  }
+
+  const areas = uniq([].concat.apply([], S.archive.map(pathSegments)));
+  if (areas.length) {
+    const chips = el("div", { class: "row", style: "margin-bottom:2px" }, [
+      el("span", { class: "small", text: "Tree:" })
+    ].concat(areas.map(a => {
+      const n = S.archive.filter(c => pathSegments(c).indexOf(a) >= 0).length;
+      const on = S.filters.archiveArea === a;
+      return el("button", {
+        class: "chip " + (on ? "accent" : ""), type: "button",
+        style: "cursor:pointer",
+        onclick: () => { S.filters.archiveArea = on ? "" : a; renderAll(); }
+      }, a + " · " + n);
+    })));
+    p.appendChild(chips);
+
+    if (S.filters.archiveArea) {
+      const sel = S.filters.archiveArea;
+      const rename = el("input", { type: "text", id: "area-rename", value: sel, style: "max-width:260px" });
+      p.appendChild(el("div", { class: "filterbar" }, [
+        el("span", { class: "small", text: "Rename this node everywhere:" }),
+        rename,
+        el("button", {
+          class: "btn sm", type: "button", onclick: () => {
+            const to = clean(rename.value);
+            if (!to || to === sel) return;
+            S.archive.forEach(c => {
+              const segs = pathSegments(c);
+              const i = segs.indexOf(sel);
+              if (i < 0) return;
+              segs[i] = to;
+              c.path = segs.join(" > ");
+              c.area = pathLeaf(c.path);
+            });
+            S.filters.archiveArea = to;
+            deriveConventions(); save(); renderAll();
+            toast("Area renamed to " + to + ".");
+          }
+        }, "Rename"),
+        el("button", {
+          class: "btn ghost sm", type: "button", onclick: () => {
+            S.archive = S.archive.filter(c => pathSegments(c).indexOf(sel) < 0);
+            S.filters.archiveArea = "";
+            buildIdf(); deriveConventions(); save(); renderAll();
+            toast("Removed every case of that area.");
+          }
+        }, "Remove this branch from the archive")
+      ]));
+    }
+  }
+
+  const types = uniq(S.archive.map(c => c.type));
+  const bar = el("div", { class: "filterbar" }, [
+    el("input", {
+      type: "text", id: "arc-search", placeholder: "Search name, step or module…", value: S.filters.archive,
+      oninput: e => { S.filters.archive = e.target.value; renderArchiveTable(); }
+    }),
+    el("select", {
+      id: "arc-type", onchange: e => { S.filters.archiveType = e.target.value; renderArchiveTable(); }
+    }, [el("option", { value: "", text: "All types" })].concat(types.map(t => el("option", { value: t, text: t, selected: S.filters.archiveType === t })))),
+    el("span", { class: "small", id: "arc-count" }),
+    el("button", { class: "btn sm", type: "button", onclick: () => convertArchiveCases(shownArchive().slice(0, 200)) }, "Carry shown over to Review"),
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.archive = []; S.conventions = null; S.archiveHeaders = null; save(); renderAll(); } }, "Remove every test case")
+  ]);
+  p.appendChild(bar);
+  const wrap = el("div", { class: "tablewrap", id: "arc-table" });
+  p.appendChild(wrap);
+  renderArchiveTable();
+}
+
+/* Old projects come in under their own names; this is where they are placed in
+   the new tree, one case at a time or in bulk once the suggestions look right. */
+function migrationCard() {
+  if (!S.moduleTree.length || !S.archive.length) return document.createDocumentFragment();
+  const unplaced = S.archive.filter(c => !treeHasPath(c.path));
+  const card = el("div", { class: "card" }, [
+    el("h3", { text: "Place in the new tree" }),
+    el("p", { class: "card-sub", text: "Cases whose path is not a node of the tree — typically everything carried over from an old qTest project. A suggestion is scored two ways: how much the case reads like the cases already at that node, and how much of the node's own distinctive vocabulary it uses." })
+  ]);
+
+  if (!unplaced.length) {
+    card.appendChild(el("div", { class: "note", text: "Every case sits at a node of the tree." }));
+    return card;
+  }
+
+  const placed = S.archive.length - unplaced.length;
+  if (placed < 5) {
+    card.appendChild(el("div", { class: "note", text: "Nothing has been placed yet, so every score here rests on vocabulary alone — and your cases are in German while the tree is in English, which that route cannot bridge. Place one case per branch by hand; the suggestions for its siblings jump immediately." }));
+  }
+
+  const thr = S.migrateThreshold || 40;
+  card.appendChild(el("div", { class: "filterbar" }, [
+    el("span", { class: "chip warn mono", text: unplaced.length + " not placed yet" }),
+    el("label", { class: "checkline" }, [
+      el("span", { class: "small", text: "Apply the top suggestion from" }),
+      el("input", {
+        type: "number", min: "10", max: "95", value: String(thr), id: "mig-thr",
+        style: "width:72px", onchange: e => { S.migrateThreshold = Number(e.target.value) || 40; save(); renderAll(); }
+      }),
+      el("span", { class: "small", text: "% upwards" })
+    ]),
+    el("button", {
+      class: "btn sm", type: "button", onclick: () => {
+        let n = 0;
+        unplaced.forEach(c => {
+          const top = suggestNodes(c, 1)[0];
+          if (top && top.score * 100 >= thr) { c.path = top.path; c.area = pathLeaf(top.path); n++; }
+        });
+        if (!n) { toast("No suggestion reaches " + thr + "% — lower the threshold or place a few by hand first."); return; }
+        buildIdf(); deriveConventions(); save(); renderAll();
+        toast(n + " case" + (n === 1 ? "" : "s") + " placed. Re-run it — the ones you just placed teach the rest.");
+      }
+    }, "Apply to all above the threshold")
+  ]));
+
+  const tw = el("div", { class: "tablewrap", style: "max-height:460px; overflow:auto" });
+  const t = el("table");
+  t.appendChild(el("thead", {}, el("tr", {}, ["Test case", "Comes from", "Belongs at", ""].map(h => el("th", { text: h })))));
+  const tb = el("tbody");
+
+  unplaced.slice(0, 60).forEach(c => {
+    const sug = suggestNodes(c, 5);
+    const best = sug[0];
+    const pick = el("select", { style: "min-width:220px" },
+      sug.map(x => el("option", {
+        value: x.path,
+        text: Math.round(x.score * 100) + "% · " + pathLeaf(x.path) +
+              (x.examples ? " — " + x.why + ", " + x.examples + " there" : " — " + x.why)
+      })).concat(
+        [el("option", { value: "", text: "── every node ──", disabled: true })],
+        (S.moduleTree || []).map(x => el("option", { value: x, text: pathLeaf(x) }))));
+
+    tb.appendChild(el("tr", {}, [
+      el("td", { text: c.name, title: c.name }),
+      el("td", { class: "small", text: c.path || c.area || "—" }),
+      el("td", {}, [
+        pick,
+        best ? el("div", { class: "small", style: "margin-top:4px", text: pathSegments({ path: best.path }).slice(0, -1).join(" › ") }) : null
+      ]),
+      el("td", {}, el("button", {
+        class: "btn sm", type: "button", onclick: () => {
+          if (!pick.value) return;
+          c.path = pick.value; c.area = pathLeaf(pick.value);
+          buildIdf(); deriveConventions(); save(); renderAll();
+        }
+      }, "Place"))
+    ]));
+  });
+  t.appendChild(tb); tw.appendChild(t);
+  card.appendChild(tw);
+  if (unplaced.length > 60) card.appendChild(el("p", { class: "small", style: "margin-top:8px", text: "Showing the first 60. Place these, then the next batch appears — and scores better for it." }));
+  return card;
+}
+
+function afterArchiveChange(added, files) {
+  buildIdf(); deriveConventions(); save(); renderAll();
+  toast(added + " test case" + (added === 1 ? "" : "s") + " imported from " + files + " file" + (files === 1 ? "" : "s") + ".");
+}
+
+function shownArchive() {
+  const q = S.filters.archive.toLowerCase();
+  return S.archive.filter(c => {
+    if (S.filters.archiveArea && pathSegments(c).indexOf(S.filters.archiveArea) < 0) return false;
+    if (S.filters.archiveType && c.type !== S.filters.archiveType) return false;
+    if (!q) return true;
+    return (c.name + " " + (c.path || c.area) + " " + c.module + " " + c.tags + " " + c.steps.map(s => s.action).join(" ")).toLowerCase().indexOf(q) >= 0;
+  });
+}
+
+function renderArchiveTable() {
+  const wrap = $("#arc-table"); if (!wrap) return;
+  const list = shownArchive();
+  const cnt = $("#arc-count"); if (cnt) cnt.textContent = list.length + " of " + S.archive.length + " shown";
+  wrap.textContent = "";
+  const t = el("table");
+  t.appendChild(el("thead", {}, el("tr", {}, ["ID", "Name", "Area", "Module", "Type", "Priority", "Steps"].map(h =>
+    el("th", { text: h, class: h === "Steps" ? "num" : "" })))));
+  const tb = el("tbody");
+  list.slice(0, 400).forEach(c => {
+    const tr = el("tr", { style: "cursor:pointer", onclick: () => showArchiveCase(c) }, [
+      el("td", { class: "id", text: c.tcid }),
+      el("td", { text: c.name }),
+      el("td", { text: c.area || "—", title: c.path || "" }),
+      el("td", { text: c.module || "—" }),
+      el("td", {}, c.type ? el("span", { class: "chip", text: c.type }) : document.createTextNode("—")),
+      el("td", { text: c.priority || "—" }),
+      el("td", { class: "num", text: String(c.steps.length) })
+    ]);
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  wrap.appendChild(t);
+  if (list.length > 400) wrap.appendChild(el("p", { class: "small", style: "padding:8px 11px", text: "Showing the first 400 rows — narrow the search to see the rest. All " + S.archive.length + " cases are indexed for matching." }));
+}
+
+function showArchiveCase(c) {
+  const p = $("#panel");
+  p.textContent = "";
+  p.appendChild(el("div", { class: "row" }, [
+    el("button", { class: "btn sm", type: "button", onclick: renderAll }, "← Back to archive"),
+    el("button", { class: "btn primary sm", type: "button", onclick: () => convertArchiveCases([c]) }, "Carry over to Review")
+  ]));
+  const card = el("div", { class: "reqcard" }, [
+    el("header", {}, [
+      el("span", { class: "key", text: c.tcid }),
+      el("span", { class: "sum", text: c.name }),
+      c.type ? el("span", { class: "chip", text: c.type }) : null,
+      c.priority ? el("span", { class: "chip", text: c.priority }) : null
+    ])
+  ]);
+  const body = el("div", { class: "body" });
+  if (c.module) body.appendChild(el("p", { class: "small", text: "Module: " + c.module }));
+  if (c.description) body.appendChild(el("p", { text: c.description }));
+  if (c.precondition) body.appendChild(el("div", { class: "note", html: "<strong>Precondition</strong><br>" + escapeHtml(c.precondition).replace(/\n/g, "<br>") }));
+  const tw = el("div", { class: "tablewrap" });
+  const t = el("table", { class: "steps" });
+  t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" })])));
+  const tb = el("tbody");
+  c.steps.forEach((s, i) => tb.appendChild(el("tr", {}, [
+    el("td", { class: "id", text: String(i + 1) }),
+    el("td", { text: s.action }),
+    el("td", { text: s.expected || "—" })
+  ])));
+  t.appendChild(tb); tw.appendChild(t); body.appendChild(tw);
+  card.appendChild(body);
+  p.appendChild(card);
+}
+
+function escapeHtml(s) { return esc(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
+
+/* ---------------------------------------------------- stage: requirements */
+function viewRequirements(p) {
+  p.appendChild(head("Requirements for this release",
+    "Jira search results as CSV or Excel, the XML from a single issue or a whole filter, or the JSON that /rest/api/3/search returns. Acceptance criteria are split into individually testable items."));
+
+  const importCard = el("div", { class: "card" }, [el("h3", { text: "Import" })]);
+  const file = el("input", { type: "file", id: "req-file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt,.json,.xml", multiple: true });
+  file.addEventListener("change", async e => {
+    const files = Array.from(e.target.files || []);
+    let added = 0;
+    for (const f of files) {
+      try {
+        const reqs = await parseRequirementFile(f);
+        S.requirements = S.requirements.concat(reqs);
+        added += reqs.length;
+      } catch (err) { toast("Could not read " + f.name + ": " + err.message); }
+    }
+    buildIdf(); save(); renderAll();
+    toast(added + " requirement" + (added === 1 ? "" : "s") + " imported.");
+    e.target.value = "";
+  });
+  const acFieldIn = el("input", {
+    type: "text", id: "ac-field", placeholder: "customfield_10101", value: S.jiraAcField
+  });
+  acFieldIn.addEventListener("input", e => { S.jiraAcField = clean(e.target.value); save(); });
+
+  importCard.appendChild(el("div", { class: "stack" }, [
+    file,
+    el("label", { class: "field" }, [
+      el("span", { text: "Acceptance-criteria field — only needed for JSON without field names; XML finds it by its label" }),
+      acFieldIn
+    ]),
+    el("details", { class: "raw" }, [
+      el("summary", { text: "…or paste Jira CSV, XML or JSON here" }),
+      el("textarea", { id: "req-paste", placeholder: 'Issue key,Summary,Description,Custom field (Acceptance Criteria),Components,Fix Version/s\n\n…or <rss>…</rss> from Jira\u2019s XML export, or {"issues":[…]} from /rest/api/3/search' }),
+      el("div", { class: "row", style: "margin-top:8px" }, [
+        el("button", {
+          class: "btn primary sm", type: "button", onclick: () => {
+            const t = $("#req-paste").value;
+            if (!clean(t)) { toast("Nothing pasted yet."); return; }
+            try {
+              const trimmed = t.trim();
+              const reqs = /^[\[{]/.test(trimmed) ? ingestJiraJson(t)
+                         : /^<(\?xml|rss|item)/i.test(trimmed) ? ingestJiraXml(t)
+                         : ingestRequirementRows(parseDelimited(t));
+              S.requirements = S.requirements.concat(reqs);
+              buildIdf(); save(); renderAll();
+              toast(reqs.length + " requirement" + (reqs.length === 1 ? "" : "s") + " imported.");
+            } catch (err) { toast("Could not parse that: " + err.message); }
+          }
+        }, "Add requirements")
+      ])
+    ])
+  ]));
+
+  const manualCard = el("div", { class: "card" }, [
+    el("h3", { text: "Add a single ticket" }),
+    el("p", { class: "card-sub", text: "For the one story that never makes it into the export." })
+  ]);
+  manualCard.appendChild(el("div", { class: "stack" }, [
+    el("label", { class: "field" }, [el("span", { text: "Issue key" }), el("input", { type: "text", id: "m-key", placeholder: "PROJ-1234" })]),
+    el("label", { class: "field" }, [el("span", { text: "Summary" }), el("input", { type: "text", id: "m-sum", placeholder: "Bulk price update for customer-specific price lists" })]),
+    el("label", { class: "field" }, [el("span", { text: "Description / acceptance criteria" }), el("textarea", { id: "m-desc", placeholder: "- The buyer can upload a CSV with up to 5000 rows\n- Invalid rows are rejected with a line number\nGiven a valid file\nWhen the buyer confirms the import\nThen the new prices are active" })]),
+    el("div", { class: "row" }, [
+      el("button", {
+        class: "btn primary sm", type: "button", onclick: () => {
+          const key = clean($("#m-key").value) || "REQ-" + (S.requirements.length + 1);
+          const sum = clean($("#m-sum").value);
+          if (!sum) { toast("A summary is required."); return; }
+          S.requirements.push(buildRequirement({
+            key, summary: sum, description: $("#m-desc").value, acRaw: "",
+            issuetype: "Story", priority: "", epic: "", labels: "", components: "", fixVersion: ""
+          }));
+          buildIdf(); save(); renderAll(); toast(key + " added.");
+        }
+      }, "Add requirement")
+    ])
+  ]));
+
+  p.appendChild(el("div", { class: "split" }, [importCard, manualCard]));
+
+  if (!S.requirements.length) {
+    p.appendChild(el("div", { class: "empty", text: "No requirements yet. Import a Jira CSV, paste JSON, or add a ticket by hand." }));
+    return;
+  }
+
+  p.appendChild(el("div", { class: "row" }, [
+    el("span", { class: "small", text: S.requirements.length + " requirements · " + S.requirements.reduce((n, r) => n + r.ac.length, 0) + " acceptance criteria" }),
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.requirements = []; buildIdf(); save(); renderAll(); } }, "Remove all requirements")
+  ]));
+
+  S.requirements.forEach((r, ri) => {
+    const card = el("div", { class: "reqcard" });
+    card.appendChild(el("header", {}, [
+      el("span", { class: "key", text: r.key }),
+      el("span", { class: "sum", text: r.summary }),
+      r.issuetype ? el("span", { class: "chip", text: r.issuetype }) : null,
+      r.fixVersion ? el("span", { class: "chip accent", text: r.fixVersion }) : null,
+      el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.requirements.splice(ri, 1); save(); renderAll(); } }, "Remove")
+    ]));
+    const body = el("div", { class: "body" });
+    if (r.components || r.labels) body.appendChild(el("div", { class: "row" }, uniq((r.components + "," + r.labels).split(",").map(clean)).map(c => el("span", { class: "chip", text: c }))));
+    if (!r.ac.length) body.appendChild(el("div", { class: "note warn", text: "No acceptance criteria could be read from this ticket. Add them below — without them only a thin functional case can be forged." }));
+    const ul = el("ul", { class: "aclist" });
+    r.ac.forEach((ac, i) => ul.appendChild(el("li", {}, [
+      el("span", { class: "acn", text: "AC" + (i + 1) }),
+      el("span", { style: "flex:1;min-width:0" }, [
+        document.createTextNode(ac.text),
+        el("div", { class: "row", style: "margin-top:5px" }, ac.techniques.map(k => el("span", { class: "chip accent", text: techName(k, genLangFor(r)) })))
+      ]),
+      el("button", { class: "btn ghost sm", type: "button", onclick: () => { r.ac.splice(i, 1); save(); renderAll(); } }, "×")
+    ])));
+    body.appendChild(ul);
+    const addIn = el("input", { type: "text", placeholder: "Add an acceptance criterion…" });
+    addIn.addEventListener("keydown", e => {
+      if (e.key !== "Enter" || !clean(addIn.value)) return;
+      r.ac.push(makeAc(addIn.value)); save(); renderAll();
+    });
+    body.appendChild(el("label", { class: "field" }, [el("span", { text: "Add criterion (Enter to confirm)" }), addIn]));
+    if (r.description) body.appendChild(el("details", { class: "raw" }, [
+      el("summary", { text: "Original ticket text" }),
+      el("p", { class: "small", style: "white-space:pre-wrap", text: r.description })
+    ]));
+    card.appendChild(body);
+    p.appendChild(card);
+  });
+}
+
+/* ----------------------------------------------------------- stage: match */
+function viewMatch(p) {
+  p.appendChild(head("Match against the knowledge base",
+    S.history.length
+      ? "Two routes to a template. Directly: the requirement text against each archived case. Through history: the requirement against each past requirement, then the cases that covered it — a green “via” chip marks those, and where the link exists it carries most of the weight."
+      : "Each requirement is scored against every archived case with TF-IDF similarity plus a trigram check on the title. Add past requirements on the Knowledge Base stage and matching also runs requirement-to-requirement, which is the steadier signal."));
+
+  if (!S.archive.length || !S.requirements.length) {
+    p.appendChild(el("div", { class: "empty", text: "Matching needs a knowledge base and at least one requirement for this release." }));
+    return;
+  }
+  buildIdf();
+
+  p.appendChild(el("div", { class: "card tight" }, el("label", { class: "field" }, [
+    el("span", { text: "Minimum similarity to accept a template (" + Math.round(S.gen.minScore * 100) + "%)" }),
+    el("input", {
+      type: "range", min: "0", max: "60", value: String(Math.round(S.gen.minScore * 100)), id: "minscore",
+      onchange: e => { S.gen.minScore = Number(e.target.value) / 100; save(); renderAll(); }
+    })
+  ])));
+
+  S.requirements.forEach(r => {
+    const ms = matchesFor(r, 5);
+    const card = el("div", { class: "reqcard" });
+    const best = ms[0] ? Math.round(ms[0].score * 100) : 0;
+    const areaList = (S.conventions && S.conventions.areas) || [];
+    const areaSel = el("select", { id: "area-" + r.key, style: "width:auto;min-width:150px" },
+      [el("option", { value: "", text: "Anywhere in the tree", selected: !r.area })].concat(
+        areaList.map(a => el("option", { value: a, text: a, selected: r.area === a }))));
+    areaSel.addEventListener("change", e => { r.area = e.target.value; r.selectedTemplate = null; buildIdf(); save(); renderAll(); });
+
+    card.appendChild(el("header", {}, [
+      el("span", { class: "key", text: r.key }),
+      el("span", { class: "sum", text: r.summary }),
+      areaList.length ? areaSel : null,
+      el("span", { class: "chip " + (best >= 45 ? "good" : best >= 20 ? "warn" : "crit"), text: "best match " + best + "%" })
+    ]));
+    const body = el("div", { class: "body" });
+    if (!ms.length || ms[0].score < S.gen.minScore) {
+      body.appendChild(el("div", { class: "note warn", text: "Nothing in the archive is close enough. Cases will be forged from the acceptance criteria alone, with your naming convention and standard steps still applied." }));
+    }
+    ms.forEach((m, i) => {
+      const sel = r.selectedTemplate ? r.selectedTemplate === m.tc.tcid : i === 0;
+      const row = el("label", { class: "matchrow" + (sel ? " top" : "") }, [
+        el("input", {
+          type: "radio", name: "tpl-" + r.key, checked: sel,
+          onchange: () => { r.selectedTemplate = m.tc.tcid; save(); renderAll(); }
+        }),
+        el("span", { class: "mono small", text: m.tc.tcid }),
+        el("span", { class: "nm", text: m.tc.name }),
+        m.tc.type ? el("span", { class: "chip", text: m.tc.type }) : null,
+        m.via > 0 ? el("span", { class: "chip good mono", text: "via " + m.viaKey + " · " + Math.round(m.via * 100) + "%" }) : null,
+        el("span", { class: "score", text: Math.round(m.score * 100) + "%" }),
+        el("span", { class: "bar" }, el("i", { style: "width:" + Math.round(m.score * 100) + "%" })),
+        el("span", { class: "small", text: m.tc.steps.length + " steps" })
+      ]);
+      body.appendChild(row);
+    });
+    card.appendChild(body);
+    p.appendChild(card);
+  });
+}
+
+/* -------------------------------------------------------- stage: generate */
+function viewGenerate(p) {
+  p.appendChild(head("Forge the drafts",
+    "Each acceptance criterion produces the cases its ISTQB technique calls for. The archive supplies the naming pattern, the standard opening and closing steps, and the field values your qTest project already knows."));
+
+  const conv = S.conventions || {};
+  const opt = (key, label, note) => el("label", { class: "checkline" }, [
+    el("input", { type: "checkbox", checked: S.gen[key], onchange: e => { S.gen[key] = e.target.checked; save(); } }),
+    el("span", {}, [document.createTextNode(label), note ? el("span", { class: "small", text: " — " + note }) : null])
+  ]);
+
+  const what = el("div", { class: "card" }, [
+    el("h3", { text: "What to forge" }),
+    el("div", { class: "stack" }, [
+      opt("positive", "Positive case per criterion", "equivalence partitioning, valid class"),
+      opt("negative", "Negative case", "only where the criterion mentions validation or errors"),
+      opt("boundary", "Boundary case", "only where the criterion carries limits or numbers"),
+      opt("roles", "Permission matrix", "only where the criterion names roles or rights"),
+      opt("e2e", "One end-to-end case per requirement", "chains every criterion in order")
+    ])
+  ]);
+
+  const autoLang = (conv.lang && LANG_LABEL[conv.lang]) || "detected per ticket";
+  const how = el("div", { class: "card" }, [
+    el("h3", { text: "How they should look" }),
+    el("div", { class: "stack" }, [
+      el("label", { class: "field" }, [
+        el("span", { text: "Target" }),
+        el("select", { id: "target", onchange: e => { S.gen.target = e.target.value; save(); renderAll(); } }, [
+          el("option", { value: "qtest", text: "qTest — manual test cases", selected: S.gen.target === "qtest" }),
+          el("option", { value: "tosca", text: "Tosca — automation specification", selected: S.gen.target === "tosca" }),
+          el("option", { value: "both", text: "Both — the same cases, both files", selected: S.gen.target === "both" })
+        ])
+      ]),
+      el("p", { class: "small", text: "The drafts are the same either way; the target decides which files the Export stage writes. Manual cases already in qTest can be carried over from the Archive stage without a requirement." }),
+      el("label", { class: "field" }, [
+        el("span", { text: "Language of the generated text" }),
+        el("select", { id: "genlang", onchange: e => { S.gen.lang = e.target.value; save(); renderAll(); } }, [
+          el("option", { value: "auto", text: "Auto — from the archive (" + autoLang + ")", selected: S.gen.lang === "auto" }),
+          el("option", { value: "de", text: "Deutsch", selected: S.gen.lang === "de" }),
+          el("option", { value: "en", text: "English", selected: S.gen.lang === "en" })
+        ])
+      ]),
+      el("p", { class: "small", text: "This sets the wording the tool writes itself — step phrasing, expected results, preconditions and the ISTQB technique names. Criterion text keeps the language of the Jira ticket, and the standard steps are reused from the archive exactly as they are." }),
+      el("label", { class: "field" }, [
+        el("span", { text: "Name pattern — {AREA} {PREFIX} {MODULE} {REQ} {TYPE} {TITLE}" }),
+        el("input", {
+          type: "text", id: "namepat", value: S.gen.namePattern || conv.namePattern || "{TITLE}",
+          oninput: e => { S.gen.namePattern = e.target.value; save(); }
+        })
+      ]),
+      conv.preamble && conv.preamble.length
+        ? opt("usePreamble", "Reuse the standard opening steps", conv.preamble.map(s => "“" + s.action + "”").join(" + "))
+        : el("p", { class: "small", text: "No repeated opening step found in the archive yet." }),
+      conv.epilogue && conv.epilogue.length
+        ? opt("useEpilogue", "Reuse the standard closing step", conv.epilogue.map(s => "“" + s.action + "”").join(" + "))
+        : null,
+      el("p", { class: "small", text: "Field values are taken from your archive: type " + (conv.defaultType || "–") + ", priority " + (conv.defaultPriority || "–") + ", status " + (conv.defaultStatus || "–") + "." })
+    ])
+  ]);
+
+  p.appendChild(el("div", { class: "split" }, [what, how]));
+
+  const pv = el("div", { class: "card" }, [el("h3", { text: "What will be produced" })]);
+  if (!S.requirements.length) pv.appendChild(el("p", { class: "small", text: "Import requirements first." }));
+  else {
+    const tw = el("div", { class: "tablewrap" });
+    const t = el("table");
+    t.appendChild(el("thead", {}, el("tr", {}, ["Requirement", "Criteria", "Techniques", "Cases"].map(h => el("th", { text: h, class: h === "Cases" ? "num" : "" })))));
+    const tb = el("tbody");
+    let total = 0;
+    S.requirements.forEach(r => {
+      const n = generateFor(r).length;
+      total += n;
+      const techs = uniq([].concat.apply([], r.ac.map(a => a.techniques))).map(k => techName(k, genLangFor(r)));
+      tb.appendChild(el("tr", {}, [
+        el("td", {}, [el("span", { class: "mono small", text: r.key }), document.createTextNode(" " + r.summary)]),
+        el("td", { class: "num", text: String(r.ac.length) }),
+        el("td", {}, el("div", { class: "row" }, techs.map(x => el("span", { class: "chip", text: x })))),
+        el("td", { class: "num", text: String(n) })
+      ]));
+    });
+    t.appendChild(tb);
+    t.appendChild(el("tfoot", {}, el("tr", {}, [
+      el("td", { colspan: "3", text: "Total" }),
+      el("td", { class: "num", style: "font-weight:600", text: String(total) })
+    ])));
+    tw.appendChild(t); pv.appendChild(tw);
+    pv.appendChild(el("div", { class: "row end", style: "margin-top:12px" }, [
+      el("span", { class: "small", style: "margin-right:auto", text: "Approved drafts are kept; everything still marked draft is replaced." }),
+      el("button", { class: "btn primary", type: "button", onclick: () => { runGeneration(); S.stage = "review"; renderAll(); } }, "Forge " + total + " drafts")
+    ]));
+  }
+  p.appendChild(pv);
+}
+
+/* ---------------------------------------------------------- stage: review */
+function viewReview(p) {
+  p.appendChild(head("Review and edit",
+    "Nothing here is final. Fix the wording, drop what you do not need, approve what goes to qTest. Drafts flagged “needs wording” have a generic expected result that the ticket did not spell out."));
+
+  if (!S.drafts.length) {
+    p.appendChild(el("div", { class: "empty" }, [
+      el("p", { text: "No drafts yet." }),
+      el("div", { class: "row", style: "justify-content:center;margin-top:10px" }, [
+        el("button", { class: "btn sm", type: "button", onclick: () => { S.stage = "generate"; renderAll(); } }, "Go to Generate")
+      ])
+    ]));
+    return;
+  }
+
+  p.appendChild(el("div", { class: "filterbar" }, [
+    el("input", {
+      type: "text", id: "dr-search", placeholder: "Filter drafts…", value: S.filters.drafts,
+      oninput: e => { S.filters.drafts = e.target.value; renderDraftList(); }
+    }),
+    el("button", { class: "btn sm", type: "button", onclick: () => { shownDrafts().forEach(d => { if (d.review !== "rejected") d.review = "approved"; }); save(); renderAll(); } }, "Approve all shown"),
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.drafts = S.drafts.filter(d => d.review === "approved"); save(); renderAll(); } }, "Discard unapproved"),
+    el("span", { class: "small", id: "dr-count" })
+  ]));
+  p.appendChild(el("div", { class: "stack", id: "draft-list" }));
+  renderDraftList();
+}
+
+function shownDrafts() {
+  const q = S.filters.drafts.toLowerCase();
+  return S.drafts.filter(d => !q || (d.name + " " + d.requirement + " " + d.technique).toLowerCase().indexOf(q) >= 0);
+}
+
+function renderDraftList() {
+  const box = $("#draft-list"); if (!box) return;
+  const list = shownDrafts();
+  const cnt = $("#dr-count"); if (cnt) cnt.textContent = list.length + " of " + S.drafts.length + " shown";
+  box.textContent = "";
+  const conv = S.conventions || {};
+  list.forEach(d => box.appendChild(draftCard(d, conv)));
+}
+
+function refreshReview() { renderRail(); renderKpis(); renderDraftList(); }
+
+function draftCard(d, conv) {
+  const card = el("div", { class: "draft " + (d.review === "approved" ? "approved" : d.review === "rejected" ? "rejected" : "") });
+
+  const title = el("input", { class: "title-in", type: "text", value: d.name, id: "n-" + d.uid });
+  title.addEventListener("input", e => { d.name = e.target.value; save(); });
+
+  card.appendChild(el("header", {}, [
+    el("span", { class: "grip", text: d.origin === "archive" ? "archive · " + d.templateId : d.requirement + (d.acRef ? " · " + d.acRef : "") }),
+    title,
+    d.needsWording ? el("span", { class: "chip warn", text: "needs wording" }) : null,
+    el("span", { class: "chip accent", text: techName(d.technique, d.lang || "en") }),
+    el("button", {
+      class: "btn sm " + (d.review === "approved" ? "primary" : ""), type: "button",
+      onclick: () => { d.review = d.review === "approved" ? "draft" : "approved"; save(); refreshReview(); }
+    }, d.review === "approved" ? "Approved" : "Approve"),
+    el("button", {
+      class: "btn ghost sm", type: "button",
+      onclick: () => { d.review = d.review === "rejected" ? "draft" : "rejected"; save(); refreshReview(); }
+    }, d.review === "rejected" ? "Restore" : "Drop")
+  ]));
+
+  const body = el("div", { class: "body" });
+
+  const sel = (label, key, options) => {
+    const s = el("select", { id: key + "-" + d.uid });
+    uniq(options.concat(d[key] ? [d[key]] : [])).forEach(o => s.appendChild(el("option", { value: o, text: o, selected: d[key] === o })));
+    s.addEventListener("change", e => { d[key] = e.target.value; save(); });
+    return el("label", { class: "field" }, [el("span", { text: label }), s]);
+  };
+  const txt = (label, key) => {
+    const i = el("input", { type: "text", value: d[key] || "", id: key + "-" + d.uid });
+    i.addEventListener("input", e => { d[key] = e.target.value; save(); });
+    return el("label", { class: "field" }, [el("span", { text: label }), i]);
+  };
+
+  body.appendChild(el("div", { class: "metagrid" }, [
+    sel("Area", "area", conv.areas || []),
+    txt("Module path", "path"),
+    sel("Module", "module", conv.modules || []),
+    sel("Type", "type", conv.types || ["Functional", "End-to-End"]),
+    sel("Priority", "priority", conv.priorities || ["High", "Medium", "Low"]),
+    sel("Status", "status", conv.statuses || ["New"]),
+    txt("Requirement", "requirement"),
+    archiveLabels().tags ? txt(archiveLabels().tags, "tags") : null
+  ]));
+
+  const custom = (conv.extra || []).filter(f => f.fill >= 0.2);
+  if (custom.length) {
+    d.extra = d.extra || {};
+    body.appendChild(el("p", { class: "small", text: "Your project's own qTest fields, prefilled with the value your archive uses most:" }));
+    body.appendChild(el("div", { class: "metagrid" }, custom.map(f => {
+      let input;
+      if (f.values.length && f.values.length <= 12) {
+        input = el("select", { id: "x-" + d.uid + "-" + norm(f.name) },
+          [el("option", { value: "", text: "—", selected: !d.extra[f.name] })].concat(
+            f.values.map(v => el("option", { value: v, text: v, selected: d.extra[f.name] === v }))));
+      } else {
+        input = el("input", { type: "text", id: "x-" + d.uid + "-" + norm(f.name), value: d.extra[f.name] || "" });
+      }
+      input.addEventListener("change", e => { d.extra[f.name] = e.target.value; save(); });
+      input.addEventListener("input", e => { d.extra[f.name] = e.target.value; save(); });
+      return el("label", { class: "field" }, [el("span", { text: f.name }), input]);
+    })));
+  }
+
+  const pre = el("textarea", { id: "pc-" + d.uid, style: "min-height:56px" });
+  pre.value = d.precondition || "";
+  pre.addEventListener("input", e => { d.precondition = e.target.value; d.needsWording = false; save(); });
+  body.appendChild(el("label", { class: "field" }, [el("span", { text: "Precondition" }), pre]));
+
+  const tw = el("div", { class: "tablewrap" });
+  const t = el("table", { class: "steps" });
+  t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" }), el("th", { text: "" })])));
+  const tb = el("tbody");
+  d.steps.forEach((s, i) => {
+    const a = el("textarea", { id: "sa-" + d.uid + "-" + i }); a.value = s.action;
+    a.addEventListener("input", e => { s.action = e.target.value; save(); });
+    const x = el("textarea", { id: "sx-" + d.uid + "-" + i }); x.value = s.expected;
+    x.addEventListener("input", e => { s.expected = e.target.value; d.needsWording = false; save(); });
+    tb.appendChild(el("tr", {}, [
+      el("td", { class: "id", text: String(i + 1) }),
+      el("td", {}, a),
+      el("td", {}, x),
+      el("td", {}, el("button", { class: "btn ghost sm", type: "button", onclick: () => { d.steps.splice(i, 1); save(); refreshReview(); } }, "×"))
+    ]));
+  });
+  t.appendChild(tb); tw.appendChild(t);
+  body.appendChild(tw);
+
+  body.appendChild(el("div", { class: "row" }, [
+    el("button", { class: "btn sm", type: "button", onclick: () => { d.steps.push({ action: "", expected: "" }); save(); refreshReview(); } }, "Add step"),
+    d.templateId ? el("span", { class: "small", style: "margin-left:auto", text: "Derived from " + d.templateId + " · " + d.templateName + " (" + d.templateScore + "% match)" }) : null
+  ]));
+
+  card.appendChild(body);
+  return card;
+}
+
+/* ---------------------------------------------------------- stage: export */
+function viewExport(p) {
+  const wantQTest = S.gen.target !== "tosca";
+  const wantTosca = S.gen.target !== "qtest";
+  p.appendChild(head(
+    wantQTest && wantTosca ? "Export" : wantTosca ? "Export to Tosca" : "Export to qTest",
+    wantQTest
+      ? "One row per test step, which is what the qTest Excel/CSV import wizard expects. Leave the Id column empty and qTest creates new test cases; map the traceability columns to your own custom fields or drop them."
+      : "One row per Tosca TestStepValue, read out of the manual step wording. Change the target on the Generate stage to also write the qTest file."));
+
+  const set = (key, label, note) => el("label", { class: "checkline" }, [
+    el("input", { type: "checkbox", checked: S.exp[key], onchange: e => { S.exp[key] = e.target.checked; save(); renderAll(); } }),
+    el("span", {}, [document.createTextNode(label), note ? el("span", { class: "small", text: " — " + note }) : null])
+  ]);
+
+  const opts = el("div", { class: "card" }, [
+    el("h3", { text: "Export options" }),
+    el("div", { class: "stack" }, [
+      set("onlyApproved", "Only approved drafts", S.drafts.filter(d => d.review === "approved").length + " of " + S.drafts.length),
+      set("repeatName", "Repeat the name on every step row", "safer for the qTest mapping wizard"),
+      set("traceability", "Add traceability columns", "requirement, criterion, technique, source case"),
+      set("modulePath", "Write the full tree path in the Module column",
+        "otherwise only the module the sheet was named after"),
+      el("label", { class: "field" }, [
+        el("span", { text: "Path separator" }),
+        el("select", { id: "pathsep", onchange: e => { S.exp.pathSep = e.target.value; save(); renderAll(); } }, [
+          el("option", { value: " > ", text: "A > B > C", selected: S.exp.pathSep === " > " }),
+          el("option", { value: "\\", text: "A\\B\\C", selected: S.exp.pathSep === "\\" }),
+          el("option", { value: "/", text: "A/B/C", selected: S.exp.pathSep === "/" })
+        ])
+      ]),
+      set("customFields", "Add my project's own fields",
+        ((S.conventions && S.conventions.extra) || []).filter(f => f.fill >= 0.2).map(f => f.name).join(", ") || "none found in the archive yet"),
+      set("bom", "UTF-8 byte-order mark", "so Excel opens umlauts correctly"),
+      el("label", { class: "field" }, [
+        el("span", { text: "Column headers" }),
+        el("select", { id: "headlang", onchange: e => { S.exp.headerLang = e.target.value; save(); renderAll(); } }, [
+          el("option", { value: "archive", text: "From my archive — the exact labels your export used", selected: S.exp.headerLang === "archive" }),
+          el("option", { value: "auto", text: "Auto — same language as the generated text", selected: S.exp.headerLang === "auto" }),
+          el("option", { value: "de", text: "Deutsch — Kurzbeschreibung, Vorbedingung, Testschritt", selected: S.exp.headerLang === "de" }),
+          el("option", { value: "en", text: "English — Description, Precondition, Test Step", selected: S.exp.headerLang === "en" })
+        ])
+      ]),
+      el("label", { class: "field" }, [
+        el("span", { text: "Delimiter" }),
+        el("select", { id: "delim", onchange: e => { S.exp.delimiter = e.target.value; save(); renderAll(); } }, [
+          el("option", { value: ";", text: "Semicolon  ;  (German Excel)", selected: S.exp.delimiter === ";" }),
+          el("option", { value: ",", text: "Comma  ,", selected: S.exp.delimiter === "," }),
+          el("option", { value: "\t", text: "Tab", selected: S.exp.delimiter === "\t" })
+        ])
+      ])
+    ])
+  ]);
+
+  const cases = exportedDrafts().length;
+  const qtRows = buildQTestRows();
+  const tosRows = wantTosca ? buildToscaRows() : null;
+
+  const summary = el("div", { class: "card" }, [el("h3", { text: "Ready to import" })]);
+  if (wantQTest) {
+    summary.appendChild(el("div", { class: "row" }, [
+      el("span", { class: "chip accent mono", text: cases + " test cases" }),
+      el("span", { class: "chip mono", text: (qtRows.length - 1) + " step rows" }),
+      el("span", { class: "chip mono", text: qtRows[0].length + " columns" })
+    ]));
+    summary.appendChild(el("p", { class: "small", style: "margin-top:10px", text: "In qTest: Test Design → select the target module → Import Test Cases → map Name, Description, Precondition, Test Step #, Test Step Description and Test Step Expected Result. Everything else is optional." }));
+  }
+  if (wantTosca) {
+    const modes = {};
+    tosRows.slice(1).forEach(r => { modes[r[6]] = (modes[r[6]] || 0) + 1; });
+    summary.appendChild(el("div", { class: "row", style: wantQTest ? "margin-top:12px" : "" },
+      [el("span", { class: "chip accent mono", text: (tosRows.length - 1) + " TestStepValues" })].concat(
+        Object.keys(modes).sort().map(m => el("span", { class: "chip mono", text: m + " " + modes[m] })))));
+  }
+
+  p.appendChild(el("div", { class: "split" }, [opts, summary]));
+
+  if (!cases) {
+    p.appendChild(el("div", { class: "empty", text: S.drafts.length ? "Nothing approved yet — approve drafts in Review, or turn off “only approved”." : "No drafts to export." }));
+    return;
+  }
+
+  if (wantQTest && S.exp.modulePath) {
+    const stray = unknownPaths();
+    if (stray.length) {
+      p.appendChild(el("div", { class: "note warn" }, [
+        el("p", { html: "<strong>" + (stray.length === 1 ? "One path is" : stray.length + " paths are") + " not in your module tree.</strong> qTest creates a new module for each one instead of filing those cases where you expect them. Fix the path on the draft, or read the tree again if it has grown:" }),
+        el("div", { class: "stack", style: "margin-top:8px" }, stray.map(x => el("span", { class: "mono small", text: x })))
+      ]));
+    }
+  }
+  if (wantQTest) {
+    p.appendChild(exportBlock("qTest test cases", "qtest-testcases.csv", toCsv(qtRows, S.exp.delimiter, S.exp.bom)));
+    p.appendChild(exportBlock("Traceability matrix", "traceability-matrix.csv", toCsv(buildTraceRows(), S.exp.delimiter, S.exp.bom)));
+  }
+  if (wantTosca) {
+    p.appendChild(el("div", { class: "note warn", html:
+      "<strong>Provisional column layout.</strong><br>" +
+      "The reading of the steps below — module, control, ActionMode, value — is the useful part and is already worked out. " +
+      "The column names are a best guess at your Tosca import until I see one of your own Tosca exports; send one and this sheet " +
+      "changes to match it. Until then, treat it as a specification to hand the automation engineer rather than a file to import blind." }));
+    p.appendChild(exportBlock("Tosca automation spec", "tosca-teststeps.csv", toCsv(tosRows, S.exp.delimiter, S.exp.bom)));
+  }
+}
+
+function exportBlock(title, filename, text) {
+  const card = el("div", { class: "card" }, [
+    el("div", { class: "row" }, [
+      el("h3", { text: title, style: "margin:0" }),
+      el("span", { class: "small mono", text: filename }),
+      el("span", { style: "margin-left:auto" }),
+      el("button", { class: "btn primary sm", type: "button", onclick: () => copyText(text) }, "Copy"),
+      el("button", { class: "btn sm", type: "button", onclick: () => trySave(filename, text) }, "Save file")
+    ])
+  ]);
+  card.appendChild(el("pre", { class: "pre", style: "margin-top:12px", text: text.replace(/^﻿/, "") }));
+  return card;
+}
+
+/* -------------------------------------------------------------- chrome */
+function head(title, hint) {
+  return el("div", { class: "panel-head" }, [el("h2", { text: title }), el("p", { class: "hint", text: hint })]);
+}
+
+/* --------------------------------------------------------- sample data */
+const SAMPLE_ARCHIVE_CSV = `Id;Name;Kurzbeschreibung;Vorbedingung;Modul;Type;Priorität;Status;Version;Regressionstest;Stichwort;Anforderung;Test Owner;Testdauer;Testumgebung;Testschritt-Nr.;Testschritt-Beschreibung;Erwartetes Ergebnis
+TF-201;TF_Katalog_Suche nach ISBN_Web_Regression;Suche im Katalog über die vollständige ISBN.;Der Katalog enthält mindestens 500 Medien.;Katalog;Manual;Medium;Freigegeben;1.2;x;Katalog;BIB-1101;M. Mustermann;20 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-201;;;;;;;;;;;;;;;2;Den Katalog öffnen;Die Suchmaske wird mit leerem Eingabefeld angezeigt
+TF-201;;;;;;;;;;;;;;;3;Die ISBN 978-3-16-148410-0 eingeben und bestätigen;Genau ein Treffer wird mit Titel, Autor und Standort angezeigt
+TF-201;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-202;TF_Katalog_Suche mit Platzhalter_Web_Regression;Titelsuche mit Platzhalter über mehrere Medien.;Der Katalog enthält mindestens 500 Medien.;Katalog;Manual;Medium;Freigegeben;1.1;x;Katalog;BIB-1101;M. Mustermann;15 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-202;;;;;;;;;;;;;;;2;Im Titelfeld Nordwind* eingeben und bestätigen;Alle Titel, die mit Nordwind beginnen, werden alphabetisch aufgelistet
+TF-202;;;;;;;;;;;;;;;3;Abmelden;Die Anmeldeseite wird angezeigt
+TF-203;TF_Katalog_Medium als vermisst kennzeichnen_Web_Regression;Ein Medium wird als vermisst markiert und aus der Ausleihe genommen.;Das Medium mit der Signatur K-4711 ist verfügbar.;Katalog;Manual;Low;Freigegeben;1.0;;Katalog;BIB-1101;E. Beispiel;15 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-203;;;;;;;;;;;;;;;2;Das Medium K-4711 öffnen und als vermisst kennzeichnen;Der Status wechselt auf Vermisst
+TF-203;;;;;;;;;;;;;;;3;Eine Ausleihe des Mediums versuchen;Die Ausleihe wird abgewiesen und die Meldung Medium ist vermisst wird angezeigt
+TF-203;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-204;TF_Ausleihe_Medium ausleihen_Web_Regression;Ausleihe eines verfügbaren Mediums an ein aktives Mitglied.;Das Mitglied 100234 ist aktiv und hat keine offenen Gebühren.;Ausleihe;Manual;High;Freigegeben;2.0;x;Ausleihe;BIB-1204;E. Beispiel;20 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-204;;;;;;;;;;;;;;;2;Den Mitgliedsausweis 100234 einlesen;Das Mitgliedskonto wird mit Name und Ausleihstand angezeigt
+TF-204;;;;;;;;;;;;;;;3;Das Medium K-4711 ausleihen;Die Ausleihe wird gebucht und ein Rückgabedatum in vier Wochen vergeben
+TF-204;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-205;TF_Ausleihe_Ausleihgrenze pro Mitglied_Web_Regression;Ab der Höchstzahl gleichzeitiger Ausleihen wird abgewiesen.;Das Mitglied 100234 hat bereits 9 Medien entliehen.;Ausleihe;Manual;High;Freigegeben;2.0;x;Ausleihe;BIB-1204;M. Mustermann;25 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-205;;;;;;;;;;;;;;;2;Ein zehntes Medium ausleihen;Die Ausleihe wird gebucht
+TF-205;;;;;;;;;;;;;;;3;Ein elftes Medium ausleihen;Die Ausleihe wird abgewiesen und die Meldung Ausleihgrenze erreicht wird angezeigt
+TF-205;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-206;TF_Mitglieder_Pflichtfeld Geburtsdatum_Web_Regression;Ein Mitgliedskonto ohne Geburtsdatum wird nicht gespeichert.;Die Mitgliederverwaltung ist geöffnet.;Mitglieder;Manual;High;Freigegeben;1.4;x;Mitglieder;BIB-1330;E. Beispiel;15 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-206;;;;;;;;;;;;;;;2;Ein neues Mitglied ohne Geburtsdatum anlegen;Das Feld ist leer und als Pflichtfeld markiert
+TF-206;;;;;;;;;;;;;;;3;Speichern auswählen;Das Konto wird nicht gespeichert und die Meldung Geburtsdatum ist ein Pflichtfeld wird angezeigt
+TF-206;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-207;TF_Ausleihe_Vom Katalog bis zur Rückgabe_Web_Volltest;End-to-End-Ablauf über Suche, Ausleihe, Verlängerung und Rückgabe.;Ein Mitarbeiterkonto und ein aktives Mitglied stehen zur Verfügung.;Ausleihe;Manual;High;Freigegeben;1.4;;E2E;BIB-1204;M. Mustermann;60 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-207;;;;;;;;;;;;;;;2;Das Medium K-4711 im Katalog suchen;Genau ein Treffer wird mit Status Verfügbar angezeigt
+TF-207;;;;;;;;;;;;;;;3;Das Medium an das Mitglied 100234 ausleihen;Die Ausleihe wird gebucht und ein Rückgabedatum vergeben
+TF-207;;;;;;;;;;;;;;;4;Die Ausleihe einmal verlängern;Das Rückgabedatum verschiebt sich um zwei Wochen
+TF-207;;;;;;;;;;;;;;;5;Das Medium zurücknehmen;Der Status wechselt auf Verfügbar und das Mitgliedskonto ist ausgeglichen
+TF-207;;;;;;;;;;;;;;;6;Abmelden;Die Anmeldeseite wird angezeigt
+TF-208;TF_Mahnwesen_Gebühr bei verspäteter Rückgabe_Web_Volltest;End-to-End-Ablauf für die Berechnung einer Mahngebühr.;Für das Mitglied 100234 ist eine Ausleihe überfällig.;Mahnwesen;Manual;Medium;Freigegeben;1.1;x;Mahnwesen;BIB-1330;E. Beispiel;40 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-208;;;;;;;;;;;;;;;2;Das überfällige Medium zurücknehmen;Eine Mahngebühr wird berechnet und dem Mitgliedskonto belastet
+TF-208;;;;;;;;;;;;;;;3;Die Gebühr als bezahlt buchen;Das Mitgliedskonto ist ausgeglichen und ein Beleg wird erzeugt
+TF-208;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt`;
+
+const SAMPLE_HISTORY_CSV = `Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Fix Version/s
+BIB-1101,Story,Katalogsuche über ISBN und Titel,"Mitarbeitende sollen Medien schnell über ISBN oder Titel finden.","- Die Suche über die vollständige ISBN liefert genau einen Treffer
+- Eine Titelsuche mit Platzhalter listet alle passenden Titel alphabetisch
+- Ein als vermisst gekennzeichnetes Medium kann nicht ausgeliehen werden",High,Abgeschlossen,Katalog,R2026.04
+BIB-1204,Story,Ausleihe und Rückgabe von Medien,"Der komplette Ausleihvorgang inklusive Verlängerung und Rückgabe.","- Ein verfügbares Medium kann an ein aktives Mitglied ausgeliehen werden
+- Bei der Ausleihe wird ein Rückgabedatum in vier Wochen vergeben
+- Eine Ausleihe kann einmal um zwei Wochen verlängert werden
+- Ab elf gleichzeitigen Ausleihen wird eine weitere abgewiesen",High,Abgeschlossen,Ausleihe,R2026.04
+BIB-1330,Story,Mitgliederverwaltung und Mahnwesen,"Konten anlegen, pflegen und Gebühren bei verspäteter Rückgabe berechnen.","- Ein Mitgliedskonto ohne Geburtsdatum wird nicht gespeichert
+- Bei verspäteter Rückgabe wird eine Mahngebühr berechnet und belastet
+- Eine bezahlte Gebühr gleicht das Mitgliedskonto aus und erzeugt einen Beleg",Medium,Abgeschlossen,Mitglieder,R2026.04
+BIB-1408,Story,Vormerkungen auf ausgeliehene Medien,"Mitglieder sollen ausgeliehene Medien vormerken können.","- Ein ausgeliehenes Medium kann vorgemerkt werden
+- Bei Rückgabe wird das erste Mitglied der Warteschlange benachrichtigt
+- Eine Vormerkung kann storniert werden",Medium,Abgeschlossen,Vormerkung,R2026.06
+BIB-1512,Story,Fernleihe über Partnerbibliotheken,"Nicht vorhandene Medien werden bei Partnerbibliotheken bestellt.","- Ein nicht vorhandenes Medium kann bestellt werden
+- Nur Benutzer mit der Rolle Ausleihe dürfen eine Bestellung auslösen
+- Nach dem Eingang wird das Mitglied benachrichtigt",Medium,Abgeschlossen,Fernleihe,R2026.06`;
+
+const SAMPLE_REQ_CSV = `Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Labels,Labels,Fix Version/s,Epic Link
+BIB-2101,Story,Massenimport von Medien über CSV,"Als Katalogpflegerin möchte ich neue Medien als CSV hochladen, damit ich sie nicht einzeln erfassen muss.","- Der Upload akzeptiert CSV-Dateien mit 1 bis 5000 Zeilen
+- Eine Zeile mit ungültiger ISBN wird abgewiesen und die Zeilennummer wird im Fehlerprotokoll angezeigt
+- Nur Benutzer mit der Rolle Katalogpflege dürfen den Upload-Dialog öffnen
+Angenommen eine gültige Datei mit 120 Zeilen
+Wenn die Katalogpflegerin den Upload bestätigt
+Dann sind die neuen Medien innerhalb einer Minute im Katalog sichtbar",High,In Arbeit,Katalog,katalogpflege,release-kritisch,R2026.10,Katalogstammdaten
+BIB-2133,Story,Verfügbarkeit direkt in der Trefferliste,"Mitarbeitende sollen den Status eines Mediums schon in der Trefferliste sehen.","- Die Trefferliste zeigt für jedes Medium den Status Verfügbar, Ausgeliehen oder Vermisst
+- Bei einem ausgeliehenen Medium wird zusätzlich das Rückgabedatum angezeigt
+- Medien ohne Standort zeigen den Status Unbekannt",Medium,In Arbeit,Katalog,trefferliste,,R2026.10,Katalogstammdaten
+BIB-2150,Bug,Ausleihe lässt sich nach der Rücknahme noch verlängern,"Nach der Rücknahme wird die Schaltfläche Verlängern weiterhin angezeigt, die Verlängerung schlägt aber unbemerkt fehl.","- Die Schaltfläche Verlängern wird ausgeblendet, sobald der Status von Ausgeliehen auf Zurückgegeben wechselt
+- Eine Ausleihe im Status Ausgeliehen kann weiterhin verlängert werden
+- Das Verlängern setzt das Rückgabedatum um zwei Wochen nach hinten",High,Bereit zum Test,Ausleihe,regression,,R2026.10,`;
+
+function loadSample() {
+  S.archiveHeaders = null;
+  const a = ingestArchiveRows(parseDelimited(SAMPLE_ARCHIVE_CSV));
+  S.archive = a.cases;
+  S.archiveHeaders = { list: a.headers, labels: a.labels, qtestLike: true, extra: a.extraHeaders };
+  S.history = ingestRequirementRows(parseDelimited(SAMPLE_HISTORY_CSV));
+  S.requirements = ingestRequirementRows(parseDelimited(SAMPLE_REQ_CSV));
+  S.drafts = [];
+  S.sampleLoaded = true;
+  S.gen.namePattern = "";
+  S.gen.lang = "auto";
+  buildIdf(); deriveConventions();
+  runGeneration();
+  S.stage = "review";
+  save(); renderAll();
+  toast("Sample project loaded — a German qTest archive, the three tickets it was written for, three new ones, and the drafts they produce.");
+}
+
+/* ---------------------------------------------------------------- boot */
+$("#btn-sample").addEventListener("click", loadSample);
+$("#btn-reset").addEventListener("click", () => {
+  S.archive = []; S.history = []; S.requirements = []; S.drafts = []; S.conventions = null;
+  S.archiveHeaders = null; S.sampleLoaded = false; S.gen.namePattern = "";
+  S.stage = "archive";
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
+  renderAll(); toast("Everything cleared.");
+});
+$("#btn-theme").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : cur === "light" ? "" : "dark";
+  if (next) document.documentElement.setAttribute("data-theme", next);
+  else document.documentElement.removeAttribute("data-theme");
+  toast("Theme: " + (next || "system"));
+});
+
+if (!load() || (!S.archive.length && !S.requirements.length)) loadSample();
+else { buildIdf(); deriveConventions(); renderAll(); }
+</script>

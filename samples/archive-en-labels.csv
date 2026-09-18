@@ -1,0 +1,20 @@
+Id;Name;Description;Module;Type;Priority;Status;Version;Shared;Test Environment;Test Owner;Execution time;Requirement Ids;Test Step #;Test Step Description;Test Step Expected Result
+TC-401;[Vormerkung] Medium vormerken;Ein ausgeliehenes Medium wird vorgemerkt.;Vormerkung;Manual;Medium;Approved;3.0;Yes;T2;M. Mustermann;20 Min;BIB-1408;1;Die Anwendung Vormerkungen öffnen;Die Liste der offenen Vormerkungen wird angezeigt
+TC-401;;;;;;;;;;;;;2;Für das ausgeliehene Medium K-4711 eine Vormerkung anlegen;Die Vormerkung wird mit Position 1 in der Warteschlange angezeigt
+TC-401;;;;;;;;;;;;;3;Die Anwendung schließen;Die Startseite wird angezeigt
+TC-402;[Vormerkung] Benachrichtigung bei Rückgabe;Bei Rückgabe wird das vormerkende Mitglied benachrichtigt.;Vormerkung;Manual;High;Approved;3.0;Yes;T2;E. Beispiel;25 Min;BIB-1408;1;Die Anwendung Vormerkungen öffnen;Die Liste der offenen Vormerkungen wird angezeigt
+TC-402;;;;;;;;;;;;;2;Das vorgemerkte Medium zurücknehmen;Das erste Mitglied der Warteschlange wird per E-Mail benachrichtigt
+TC-402;;;;;;;;;;;;;3;Die Anwendung schließen;Die Startseite wird angezeigt
+TC-403;[Vormerkung] Vormerkung stornieren;Eine Vormerkung kann vom Mitglied storniert werden.;Vormerkung;Manual;Low;Approved;2.8;Yes;T2;M. Mustermann;15 Min;BIB-1408;1;Die Anwendung Vormerkungen öffnen;Die Liste der offenen Vormerkungen wird angezeigt
+TC-403;;;;;;;;;;;;;2;Eine bestehende Vormerkung stornieren;Die Vormerkung wird entfernt und die Warteschlange rückt nach
+TC-403;;;;;;;;;;;;;3;Die Anwendung schließen;Die Startseite wird angezeigt
+TC-404;[Fernleihe] Bestellung bei einer Partnerbibliothek;Ein nicht vorhandenes Medium wird per Fernleihe bestellt.;Fernleihe;Manual;Medium;Approved;2.8;Yes;T2;E. Beispiel;30 Min;BIB-1512;1;Die Anwendung Fernleihe öffnen;Die Suchmaske für Partnerbibliotheken wird angezeigt
+TC-404;;;;;;;;;;;;;2;Ein nicht vorhandenes Medium suchen und bestellen;Eine Bestellnummer wird vergeben und der Status lautet Bestellt
+TC-404;;;;;;;;;;;;;3;Die Anwendung schließen;Die Startseite wird angezeigt
+TC-405;[Fernleihe] Nur Mitarbeiter dürfen bestellen;Die Fernleihe ist auf die Rolle Ausleihe beschränkt.;Fernleihe;Manual;High;Approved;2.8;Yes;T2;M. Mustermann;20 Min;BIB-1512;1;Die Anwendung Fernleihe öffnen;Die Suchmaske für Partnerbibliotheken wird angezeigt
+TC-405;;;;;;;;;;;;;2;Mit einem Benutzer ohne die Rolle Ausleihe eine Bestellung versuchen;Die Aktion wird abgewiesen und es werden keine Daten geändert
+TC-405;;;;;;;;;;;;;3;Die Anwendung schließen;Die Startseite wird angezeigt
+TC-406;[Fernleihe] Bestellung bis zur Bereitstellung;End-to-End-Ablauf der Fernleihe bis zur Abholung.;Fernleihe;Manual;High;Approved;3.0;Yes;T2;E. Beispiel;45 Min;BIB-1512;1;Die Anwendung Fernleihe öffnen;Die Suchmaske für Partnerbibliotheken wird angezeigt
+TC-406;;;;;;;;;;;;;2;Ein Medium bestellen und den Eingang buchen;Der Status wechselt auf Eingetroffen
+TC-406;;;;;;;;;;;;;3;Das Mitglied benachrichtigen und die Abholung buchen;Der Status wechselt auf Abgeholt und die Frist beginnt
+TC-406;;;;;;;;;;;;;4;Die Anwendung schließen;Die Startseite wird angezeigt

@@ -1,0 +1,30 @@
+Id;Name;Description;Precondition;Module;Type;Priority;Status;Test Step #;Test Step Description;Test Step Expected Result
+TC_CAT_0001;TC_Catalogue_Search by ISBN;Search the catalogue by full ISBN.;The catalogue holds at least 500 titles.;Catalogue;Functional;High;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_CAT_0001;;;;;;;;2;Open the catalogue;The search mask is displayed with an empty input field
+TC_CAT_0001;;;;;;;;3;Enter the ISBN 978-3-16-148410-0 and confirm;Exactly one hit is shown with title, author and shelf mark
+TC_CAT_0001;;;;;;;;4;Log out;The login page is displayed
+TC_CAT_0002;TC_Catalogue_Search with a wildcard;Wildcard search across titles.;The catalogue holds at least 500 titles.;Catalogue;Functional;Medium;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_CAT_0002;;;;;;;;2;Enter Northwind* in the title field and confirm;Every title starting with Northwind is listed alphabetically
+TC_CAT_0002;;;;;;;;3;Log out;The login page is displayed
+TC_LND_0003;TC_Lending_Lend an available item;Lending an available item to an active member.;Member 100234 is active and owes no fees.;Lending;Functional;High;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_LND_0003;;;;;;;;2;Scan the membership card 100234;The member account is shown with name and current loans
+TC_LND_0003;;;;;;;;3;Lend the item K-4711;The loan is booked and a return date four weeks out is set
+TC_LND_0003;;;;;;;;4;Log out;The login page is displayed
+TC_LND_0004;TC_Lending_Loan limit per member;A further loan is refused once the limit is reached.;Member 100234 already has nine items on loan.;Lending;Functional;High;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_LND_0004;;;;;;;;2;Lend a tenth item;The loan is booked
+TC_LND_0004;;;;;;;;3;Lend an eleventh item;The loan is refused and the message Loan limit reached is shown
+TC_LND_0004;;;;;;;;4;Log out;The login page is displayed
+TC_MEM_0005;TC_Members_Date of birth is mandatory;A member account without a date of birth is not saved.;Member administration is open.;Members;Negative;High;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_MEM_0005;;;;;;;;2;Create a member without a date of birth;The field is empty and marked as mandatory
+TC_MEM_0005;;;;;;;;3;Select Save;The account is not saved and the message Date of birth is mandatory is shown
+TC_MEM_0005;;;;;;;;4;Log out;The login page is displayed
+TC_E2E_0006;TC_E2E_From the catalogue to the return;End-to-end flow across search, lending, renewal and return.;A staff account and an active member are available.;Lending;End-to-End;High;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_E2E_0006;;;;;;;;2;Find the item K-4711 in the catalogue;Exactly one hit is shown with the status Available
+TC_E2E_0006;;;;;;;;3;Lend the item to member 100234;The loan is booked and a return date is set
+TC_E2E_0006;;;;;;;;4;Renew the loan once;The return date moves two weeks later
+TC_E2E_0006;;;;;;;;5;Take the item back;The status returns to Available and the member account is clear
+TC_E2E_0006;;;;;;;;6;Log out;The login page is displayed
+TC_E2E_0007;TC_E2E_Late return and fee;End-to-end flow for calculating a late fee.;An overdue loan exists for member 100234.;Fees;End-to-End;Medium;Approved;1;Log in to the library system as a member of staff;The home page shows the user name in the header
+TC_E2E_0007;;;;;;;;2;Take the overdue item back;A late fee is calculated and charged to the member account
+TC_E2E_0007;;;;;;;;3;Book the fee as paid;The member account is clear and a receipt is produced
+TC_E2E_0007;;;;;;;;4;Log out;The login page is displayed

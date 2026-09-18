@@ -1,0 +1,17 @@
+Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Fix Version/s
+BIB-1101,Story,Katalogsuche über ISBN und Titel,"Mitarbeitende sollen Medien schnell über ISBN oder Titel finden.","- Die Suche über die vollständige ISBN liefert genau einen Treffer
+- Eine Titelsuche mit Platzhalter listet alle passenden Titel alphabetisch
+- Ein als vermisst gekennzeichnetes Medium kann nicht ausgeliehen werden",High,Abgeschlossen,Katalog,R2026.04
+BIB-1204,Story,Ausleihe und Rückgabe von Medien,"Der komplette Ausleihvorgang inklusive Verlängerung und Rückgabe.","- Ein verfügbares Medium kann an ein aktives Mitglied ausgeliehen werden
+- Bei der Ausleihe wird ein Rückgabedatum in vier Wochen vergeben
+- Eine Ausleihe kann einmal um zwei Wochen verlängert werden
+- Ab elf gleichzeitigen Ausleihen wird eine weitere abgewiesen",High,Abgeschlossen,Ausleihe,R2026.04
+BIB-1330,Story,Mitgliederverwaltung und Mahnwesen,"Konten anlegen, pflegen und Gebühren bei verspäteter Rückgabe berechnen.","- Ein Mitgliedskonto ohne Geburtsdatum wird nicht gespeichert
+- Bei verspäteter Rückgabe wird eine Mahngebühr berechnet und belastet
+- Eine bezahlte Gebühr gleicht das Mitgliedskonto aus und erzeugt einen Beleg",Medium,Abgeschlossen,Mitglieder,R2026.04
+BIB-1408,Story,Vormerkungen auf ausgeliehene Medien,"Mitglieder sollen ausgeliehene Medien vormerken können.","- Ein ausgeliehenes Medium kann vorgemerkt werden
+- Bei Rückgabe wird das erste Mitglied der Warteschlange benachrichtigt
+- Eine Vormerkung kann storniert werden",Medium,Abgeschlossen,Vormerkung,R2026.06
+BIB-1512,Story,Fernleihe über Partnerbibliotheken,"Nicht vorhandene Medien werden bei Partnerbibliotheken bestellt.","- Ein nicht vorhandenes Medium kann bestellt werden
+- Nur Benutzer mit der Rolle Ausleihe dürfen eine Bestellung auslösen
+- Nach dem Eingang wird das Mitglied benachrichtigt",Medium,Abgeschlossen,Fernleihe,R2026.06

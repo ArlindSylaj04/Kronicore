@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="0.92">
+<channel>
+  <title>Jira</title>
+  <link>https://jira.example.com</link>
+  <description>An XML representation of a search request</description>
+  <item>
+    <title>[BIB-2101] Massenimport von Medien über CSV</title>
+    <link>https://jira.example.com/browse/BIB-2101</link>
+    <project id="10100" key="BIB">Bibliothek</project>
+    <description>&lt;p&gt;Als Katalogpflegerin möchte ich neue Medien als CSV hochladen.&lt;/p&gt;</description>
+    <key id="45123">BIB-2101</key>
+    <summary>Massenimport von Medien über CSV</summary>
+    <type id="10001" iconUrl="https://jira.example.com/story.svg">Story</type>
+    <priority id="2" iconUrl="https://jira.example.com/high.svg">High</priority>
+    <status id="3" iconUrl="https://jira.example.com/inprogress.svg">In Arbeit</status>
+    <labels>
+      <label>katalogpflege</label>
+      <label>release-kritisch</label>
+    </labels>
+    <component>Katalog</component>
+    <fixVersion>R2026.10</fixVersion>
+    <customfields>
+      <customfield id="customfield_10014" key="com.pyxis.greenhopper.jira:gh-epic-link">
+        <customfieldname>Epic Link</customfieldname>
+        <customfieldvalues><customfieldvalue key="BIB-2000">Katalogstammdaten</customfieldvalue></customfieldvalues>
+      </customfield>
+      <customfield id="customfield_10101" key="com.atlassian.jira.plugin.system.customfieldtypes:textarea">
+        <customfieldname>Akzeptanzkriterien</customfieldname>
+        <customfieldvalues><customfieldvalue>&lt;ul&gt;&lt;li&gt;Der Upload akzeptiert CSV-Dateien mit 1 bis 5000 Zeilen&lt;/li&gt;&lt;li&gt;Eine Zeile mit ungültiger ISBN wird abgewiesen und die Zeilennummer wird im Fehlerprotokoll angezeigt&lt;/li&gt;&lt;li&gt;Nur Benutzer mit der Rolle Katalogpflege dürfen den Upload-Dialog öffnen&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Angenommen eine gültige Datei mit 120 Zeilen&lt;br/&gt;Wenn die Katalogpflegerin den Upload bestätigt&lt;br/&gt;Dann sind die neuen Medien innerhalb einer Minute im Katalog sichtbar&lt;/p&gt;</customfieldvalue></customfieldvalues>
+      </customfield>
+    </customfields>
+  </item>
+  <item>
+    <title>[BIB-2150] Ausleihe lässt sich nach der Rücknahme noch verlängern</title>
+    <link>https://jira.example.com/browse/BIB-2150</link>
+    <project id="10100" key="BIB">Bibliothek</project>
+    <description>&lt;p&gt;Nach der Rücknahme schlägt die Verlängerung unbemerkt fehl.&lt;/p&gt;</description>
+    <key id="45988">BIB-2150</key>
+    <summary>Ausleihe lässt sich nach der Rücknahme noch verlängern</summary>
+    <type id="1" iconUrl="https://jira.example.com/bug.svg">Bug</type>
+    <priority id="2" iconUrl="https://jira.example.com/high.svg">High</priority>
+    <status id="10001" iconUrl="https://jira.example.com/ready.svg">Bereit zum Test</status>
+    <labels><label>regression</label></labels>
+    <component>Ausleihe</component>
+    <fixVersion>R2026.10</fixVersion>
+    <customfields>
+      <customfield id="customfield_10101" key="com.atlassian.jira.plugin.system.customfieldtypes:textarea">
+        <customfieldname>Akzeptanzkriterien</customfieldname>
+        <customfieldvalues><customfieldvalue>&lt;ul&gt;&lt;li&gt;Die Schaltfläche Verlängern wird ausgeblendet, sobald der Status von Ausgeliehen auf Zurückgegeben wechselt&lt;/li&gt;&lt;li&gt;Eine Ausleihe im Status Ausgeliehen kann weiterhin verlängert werden&lt;/li&gt;&lt;li&gt;Das Verlängern setzt das Rückgabedatum um zwei Wochen nach hinten&lt;/li&gt;&lt;/ul&gt;</customfieldvalue></customfieldvalues>
+      </customfield>
+    </customfields>
+  </item>
+</channel>
+</rss>

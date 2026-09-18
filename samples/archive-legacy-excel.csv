@@ -1,0 +1,14 @@
+Testfall,Modul,Testart,Prio,Voraussetzung,Schritte,Erwartetes Ergebnis,Anforderung
+TF_MAG_0101,Magazin,Functional,High,"Ein Magazinauftrag mit 3 Positionen existiert.","1. Am Magazinarbeitsplatz anmelden
+2. Die Auftragsliste öffnen
+3. Den Standort M-01-14 scannen
+4. Die entnommene Menge 5 bestätigen","Die Menge wird gebucht und die Position als erledigt markiert",MAG-88
+TF_MAG_0102,Magazin,Functional,Medium,"Ein Medium liegt auf zwei Standorten.","1. Am Magazinarbeitsplatz anmelden
+2. Das Medium K-4711 in der Bestandsübersicht öffnen
+3. Die Mengen beider Standorte vergleichen","Beide Standorte werden mit eigener Menge gelistet und die Summe stimmt mit dem Gesamtbestand überein",MAG-91
+TF_MAG_0103,Magazin,Negative,High,"Ein Magazinauftrag ist bereits abgeschlossen.","1. Am Magazinarbeitsplatz anmelden
+2. Den abgeschlossenen Auftrag öffnen
+3. Die entnommene Menge ändern","Der Auftrag ist schreibgeschützt und die Meldung Auftrag bereits abgeschlossen wird angezeigt",MAG-92
+TF_MIT_0104,Mitglieder,Functional,Medium,"Ein Mitglied mit abweichender Rechnungsadresse existiert.","1. Am Bibliothekssystem anmelden
+2. Das Mitglied 100234 öffnen
+3. Den Reiter Adressen öffnen","Wohn- und Rechnungsadresse werden getrennt angezeigt und sind beide bearbeitbar",MIT-12
