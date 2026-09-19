@@ -373,8 +373,99 @@ button.barrow.on{background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(-
 ins.d{background:var(--good-soft); color:var(--good); text-decoration:none; border-radius:3px; padding:0 1px}
 del.d{background:var(--crit-soft); color:var(--crit); border-radius:3px; padding:0 1px}
 
+/* ---------- a rail you can fold away ---------- */
+.shell.folded{grid-template-columns:52px minmax(0,1fr)}
+.railtop{display:flex; justify-content:flex-end; margin-bottom:4px}
+.railfold{border:0; background:transparent; color:var(--faint); cursor:pointer;
+  padding:4px 7px; border-radius:6px; font-family:var(--mono); font-size:12px}
+.railfold:hover{background:var(--surface-2); color:var(--text)}
+.shell.folded .stage{justify-content:center; padding:9px 4px}
+.shell.folded .stage .lbl,.shell.folded .stage .cnt{display:none}
+@media (max-width:860px){ .shell.folded{grid-template-columns:minmax(0,1fr)} .railtop{display:none} }
+
+/* ---------- Ctrl+K ---------- */
+.scrim{position:fixed; inset:0; background:rgba(8,14,13,.45); z-index:60;
+  display:flex; align-items:flex-start; justify-content:center; padding:10vh 16px 16px}
+.palette{width:min(680px,100%); max-height:74vh; display:flex; flex-direction:column;
+  background:var(--surface); border:1px solid var(--line); border-radius:11px;
+  box-shadow:0 24px 64px -24px rgba(0,0,0,.6); overflow:hidden}
+.palette>input{border:0; border-bottom:1px solid var(--line); border-radius:0;
+  background:var(--surface); font-size:15px; padding:14px 16px}
+.palette>input:focus{outline:none}
+.phits{overflow:auto; padding:6px}
+.pgroup{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint); padding:9px 10px 4px}
+.phit{display:flex; gap:10px; align-items:baseline; width:100%; text-align:left;
+  padding:7px 10px; border:0; border-radius:6px; background:transparent; color:inherit;
+  font: inherit; font-size:13px; cursor:pointer}
+.phit:hover{background:var(--surface-3)}
+.phit[aria-selected="true"]{background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line)}
+.phit .pk{font-family:var(--mono); font-size:11px; color:var(--accent); flex:none}
+.phit .pn{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.phit .pm{color:var(--faint); font-size:11.5px; flex:none}
+.pfoot{border-top:1px solid var(--line); padding:7px 12px; font-size:11.5px; color:var(--faint);
+  display:flex; gap:14px; flex-wrap:wrap}
+.pfoot kbd{font-family:var(--mono); font-size:10.5px; background:var(--surface-2);
+  border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:1px 5px}
+
+/* ---------- a case peeked at, not navigated to ---------- */
+.drawer{position:fixed; top:0; right:0; bottom:0; width:min(620px,100%); z-index:61;
+  background:var(--surface); border-left:1px solid var(--line);
+  box-shadow:-24px 0 64px -32px rgba(0,0,0,.5); display:flex; flex-direction:column}
+.drawer>header{display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  padding:11px 14px; border-bottom:1px solid var(--line); background:var(--surface-3)}
+.drawer>header{flex-wrap:nowrap}
+.drawer>header h3{font-size:14px; flex:1 1 120px; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.drawer>header .btn{flex:none}
+.drawerbody{overflow:auto; padding:14px}
+.drawer .reqcard{border:0}
+.drawer .reqcard>header{border-radius:8px 8px 0 0}
+@media (prefers-reduced-motion:no-preference){
+  .drawer{animation:slidein .16s ease-out}
+  @keyframes slidein{from{transform:translateX(18px); opacity:.4} to{transform:none; opacity:1}}
+}
+
+/* ---------- saved views ---------- */
+.viewchip{display:inline-flex; align-items:center; gap:4px; padding:2px 4px 2px 9px; border-radius:20px;
+  font-size:11.5px; background:var(--surface-2); border:1px solid var(--line-soft); color:var(--muted)}
+.viewchip>button:first-child{background:none; border:0; color:inherit; cursor:pointer; font:inherit; padding:0}
+.viewchip>button:first-child:hover{color:var(--text)}
+.viewchip .x{background:none; border:0; color:inherit; opacity:.5; cursor:pointer; font-size:13px; line-height:1; padding:0 2px}
+.viewchip .x:hover{opacity:1; color:var(--crit)}
+
+/* ---------- review at a hundred drafts ---------- */
+.dgroup{border:1px solid var(--line); border-radius:9px; background:var(--surface-3); overflow:hidden}
+.dgroup>summary{display:flex; gap:9px; align-items:center; flex-wrap:wrap; cursor:pointer;
+  padding:9px 12px; font-size:13px; list-style:none}
+.dgroup>summary::-webkit-details-marker{display:none}
+.dgroup>summary::marker{content:""}
+.dgroup>summary:hover{background:var(--surface-2)}
+.dgroup>summary .tw{font-family:var(--mono); font-size:10px; color:var(--faint); width:10px; flex:none}
+.dgroup[open]>summary .tw::after{content:"\25be"}
+.dgroup:not([open])>summary .tw::after{content:"\25b8"}
+.dgroup>summary .gname{font-weight:600; flex:1 1 200px; min-width:0}
+.dgroup .gbody{display:flex; flex-direction:column; gap:12px; padding:12px}
+.draft.compact>.body{display:none}
+/* a folded card that wraps onto two lines is not a folded card */
+.draft.compact>header{flex-wrap:nowrap; overflow:hidden}
+.draft.compact>header .title-in{flex:1 1 130px; min-width:70px}
+.draft.compact>header .chip{max-width:168px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; display:inline-block; line-height:1.5}
+.draft.compact>header .btn{flex:none}
+.draft .fold{background:none; border:0; color:var(--faint); cursor:pointer; padding:0 4px;
+  font-family:var(--mono); font-size:11px; flex:none}
+.draft .fold:hover{color:var(--text)}
+.draft.cursor{outline:2px solid var(--accent); outline-offset:2px}
+.keyhelp{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:6px 16px; font-size:12.5px}
+.keyhelp>div{display:flex; gap:8px; align-items:baseline}
+.keyhelp kbd{font-family:var(--mono); font-size:10.5px; background:var(--surface-2);
+  border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:1px 5px; flex:none}
+
 @media print{
-  .rail, .masthead-actions, .filterbar, .btn, details.raw, .bulkbar, .stepbtn{display:none !important}
+  .rail, .masthead-actions, .filterbar, .btn, details.raw, .bulkbar, .stepbtn,
+  .scrim, .drawer, .railtop{display:none !important}
+  .draft.compact>.body{display:flex !important}
   body{background:#fff}
   .wrap{max-width:none; padding:0}
   .shell{display:block}
@@ -408,7 +499,7 @@ details.raw[open] summary{margin-bottom:8px}
 
   <div class="kpis" id="kpis"></div>
 
-  <div class="shell">
+  <div class="shell" id="shell">
     <nav class="rail" id="rail" aria-label="Pipeline"></nav>
     <main id="panel" class="panel"></main>
   </div>
@@ -446,7 +537,10 @@ const S = {
     target:"qtest"                  // qtest | tosca | both
   },
   exp: { delimiter:";", bom:true, repeatName:true, traceability:true, onlyApproved:true, headerLang:"archive", customFields:true, modulePath:true, pathSep:" > " },
-  jiraAcField: ""     // e.g. customfield_10101, when Jira does not send field names
+  jiraAcField: "",    // e.g. customfield_10101, when Jira does not send field names
+  views: [],          // named filter bundles for the knowledge base
+  review: { group: "", compact: false },   // how the draft list is laid out
+  railFold: false
 };
 
 /* ---------------------------------------------------------------- utils */
@@ -486,7 +580,8 @@ function save() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       archive: S.archive, history: S.history, requirements: S.requirements, drafts: S.drafts,
       conventions: S.conventions, archiveHeaders: S.archiveHeaders,
-      sampleLoaded: S.sampleLoaded, gen: S.gen, exp: S.exp, jiraAcField: S.jiraAcField, importPath: S.importPath, moduleTree: S.moduleTree, migrateThreshold: S.migrateThreshold
+      sampleLoaded: S.sampleLoaded, gen: S.gen, exp: S.exp, jiraAcField: S.jiraAcField, importPath: S.importPath, moduleTree: S.moduleTree, migrateThreshold: S.migrateThreshold,
+      views: S.views, review: S.review, railFold: S.railFold
     }));
   } catch (e) {
     if (!storageWarned) {
@@ -507,10 +602,13 @@ function load() {
       jiraAcField: d.jiraAcField || "",
       importPath: d.importPath || d.importArea || "",
       migrateThreshold: d.migrateThreshold || 40,
+      views: d.views || [],
+      railFold: !!d.railFold,
       moduleTree: d.moduleTree || []
     });
     if (d.gen) Object.assign(S.gen, d.gen);
     if (d.exp) Object.assign(S.exp, d.exp);
+    if (d.review) Object.assign(S.review, d.review);
     return true;
   } catch (e) { return false; }
 }
@@ -520,7 +618,8 @@ function load() {
    work on two releases, hand a configured knowledge base to a colleague, and
    survive a cleared browser. */
 const PROJECT_KEYS = ["archive","history","requirements","drafts","conventions",
-  "archiveHeaders","moduleTree","importPath","gen","exp","jiraAcField","migrateThreshold"];
+  "archiveHeaders","moduleTree","importPath","gen","exp","jiraAcField","migrateThreshold",
+  "views","review"];
 
 function projectJson() {
   const out = { app: "testfall-schmiede", version: 1, savedAt: new Date().toISOString() };
@@ -2316,10 +2415,20 @@ const STAGES = [
 function renderRail() {
   const rail = $("#rail");
   rail.textContent = "";
+  const shell = $("#shell");
+  if (shell) shell.classList.toggle("folded", !!S.railFold);
+  rail.appendChild(el("div", { class: "railtop" },
+    el("button", {
+      class: "railfold", type: "button",
+      title: S.railFold ? "Widen the pipeline" : "Fold the pipeline away",
+      "aria-label": S.railFold ? "Widen the pipeline" : "Fold the pipeline away",
+      onclick: () => { S.railFold = !S.railFold; save(); renderAll(); }
+    }, S.railFold ? "\u00bb" : "\u00ab")));
   STAGES.forEach((s, i) => {
     const n = s.count();
     rail.appendChild(el("button", {
       class: "stage", type: "button", "aria-current": S.stage === s.id ? "true" : "false",
+      title: s.label + (n ? " \u2014 " + n : ""),
       onclick: () => goto(s.id)
     }, [
       el("span", { class: "num", text: String(i + 1) }),
@@ -2546,7 +2655,7 @@ function viewArchive(p) {
     const tb = el("tbody");
     S.history.slice(0, 300).forEach(h => {
       const n = linkedCases(h).length;
-      tb.appendChild(el("tr", {}, [
+      tb.appendChild(el("tr", { id: "h-" + h.key }, [
         el("td", { class: "id", text: h.key }),
         el("td", { text: h.summary }),
         el("td", { class: "num", text: String(h.ac.length) }),
@@ -2673,6 +2782,31 @@ function viewArchive(p) {
     ]));
   }
 
+  /* A view is the filters you keep coming back to, under a name. It travels
+     with the project, because it describes the project, not the browser. */
+  const viewBar = el("div", { class: "filterbar" }, [el("span", { class: "small", text: "Views:" })]);
+  (S.views || []).forEach((v, i) => viewBar.appendChild(el("span", { class: "viewchip" }, [
+    el("button", { type: "button", title: viewSummary(v), onclick: () => applyView(v) }, v.name),
+    el("button", { class: "x", type: "button", title: "Forget this view",
+      onclick: () => { S.views.splice(i, 1); save(); renderAll(); } }, "\u00d7")
+  ])));
+  if (!(S.views || []).length) viewBar.appendChild(el("span", { class: "small", text: "none saved yet" }));
+  viewBar.appendChild(el("span", { style: "margin-left:auto" }));
+  viewBar.appendChild(el("button", {
+    class: "btn sm", type: "button", disabled: archiveFilterOn() ? null : "",
+    title: archiveFilterOn() ? "Keep these filters under a name" : "Set a filter first",
+    onclick: () => {
+      const v = currentView();
+      const name = window.prompt("Name this view", viewSummary(v));
+      if (!clean(name)) return;
+      v.name = clean(name).slice(0, 40);
+      S.views = (S.views || []).filter(x => x.name !== v.name).concat([v]);
+      save(); renderAll();
+      toast("View \u201c" + v.name + "\u201d saved.");
+    }
+  }, "Save this view"));
+  p.appendChild(viewBar);
+
   const types = uniq(S.archive.map(c => c.type));
   const bar = el("div", { class: "filterbar" }, [
     el("input", {
@@ -2790,6 +2924,25 @@ function afterArchiveChange(added, updated, files) {
   toast((parts.join(", ") || "nothing new") + " from " + files + " file" + (files === 1 ? "" : "s") + ".");
 }
 
+const archiveFilterOn = () =>
+  !!(S.filters.archive || S.filters.archiveType || S.filters.archiveArea || S.filters.archiveHealth);
+const currentView = () => ({
+  name: "", q: S.filters.archive, type: S.filters.archiveType,
+  area: S.filters.archiveArea, health: S.filters.archiveHealth
+});
+function viewSummary(v) {
+  const bits = [v.area, v.type, v.health ? healthBandByKey(v.health).label : "", v.q ? "\u201c" + v.q + "\u201d" : ""];
+  return bits.filter(Boolean).join(" \u00b7 ") || "everything";
+}
+function applyView(v) {
+  S.filters.archive = v.q || "";
+  S.filters.archiveType = v.type || "";
+  S.filters.archiveArea = v.area || "";
+  S.filters.archiveHealth = v.health || "";
+  renderAll();
+  toast("View \u201c" + v.name + "\u201d \u2014 " + shownArchive().length + " cases.");
+}
+
 function shownArchive() {
   const q = S.filters.archive.toLowerCase();
   return S.archive.filter(c => {
@@ -2826,50 +2979,6 @@ function renderArchiveTable() {
   t.appendChild(tb);
   wrap.appendChild(t);
   if (list.length > 400) wrap.appendChild(el("p", { class: "small", style: "padding:8px 11px", text: "Showing the first 400 rows — narrow the search to see the rest. All " + S.archive.length + " cases are indexed for matching." }));
-}
-
-function showArchiveCase(c) {
-  const p = $("#panel");
-  p.textContent = "";
-  p.appendChild(el("div", { class: "row" }, [
-    el("button", { class: "btn sm", type: "button", onclick: renderAll }, "← Back to archive"),
-    el("button", { class: "btn primary sm", type: "button", onclick: () => convertArchiveCases([c]) }, "Carry over to Review")
-  ]));
-  const card = el("div", { class: "reqcard" }, [
-    el("header", {}, [
-      el("span", { class: "key", text: c.tcid }),
-      el("span", { class: "sum", text: c.name }),
-      c.type ? el("span", { class: "chip", text: c.type }) : null,
-      c.priority ? el("span", { class: "chip", text: c.priority }) : null
-    ])
-  ]);
-  const body = el("div", { class: "body" });
-  if (c.module) body.appendChild(el("p", { class: "small", text: "Module: " + c.module }));
-  if (c.description) body.appendChild(el("p", { text: c.description }));
-  if (c.precondition) body.appendChild(el("div", { class: "note", html: "<strong>Precondition</strong><br>" + escapeHtml(c.precondition).replace(/\n/g, "<br>") }));
-
-  const h = healthOf(c);
-  body.appendChild(el("div", { class: "card tight" }, [
-    el("div", { class: "row" }, [
-      el("h3", { text: "Test health", style: "margin:0" }),
-      el("span", { style: "margin-left:auto" }),
-      healthChip(h)
-    ]),
-    el("div", { style: "margin-top:10px" }, healthList(h.checks))
-  ]));
-
-  const tw = el("div", { class: "tablewrap" });
-  const t = el("table", { class: "steps" });
-  t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" })])));
-  const tb = el("tbody");
-  c.steps.forEach((s, i) => tb.appendChild(el("tr", {}, [
-    el("td", { class: "id", text: String(i + 1) }),
-    el("td", { text: s.action }),
-    el("td", { text: s.expected || "—" })
-  ])));
-  t.appendChild(tb); tw.appendChild(t); body.appendChild(tw);
-  card.appendChild(body);
-  p.appendChild(card);
 }
 
 function escapeHtml(s) { return esc(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
@@ -3217,6 +3326,27 @@ function viewReview(p) {
       dupCount + " close to an archived case") : null,
     el("span", { class: "small", id: "dr-count" })
   ]));
+
+  // Sixteen drafts fit on a page; a hundred do not. These two decide the shape.
+  p.appendChild(el("div", { class: "filterbar" }, [
+    el("label", { class: "field", style: "flex-direction:row;align-items:center;gap:6px" }, [
+      el("span", { text: "Group by" }),
+      el("select", { id: "dr-group", onchange: e => { S.review.group = e.target.value; save(); renderAll(); } },
+        [["", "nothing"], ["requirement", "requirement"], ["module", "module"], ["technique", "technique"],
+         ["review", "review state"]].map(o =>
+          el("option", { value: o[0], text: o[1], selected: S.review.group === o[0] })))
+    ]),
+    el("label", { class: "checkline", title: "Show only the header of each draft" }, [
+      el("input", { type: "checkbox", id: "dr-compact", checked: S.review.compact ? "" : null,
+        onchange: e => { S.review.compact = e.target.checked; OPEN_DRAFTS.clear(); save(); renderAll(); } }),
+      el("span", { class: "small", text: "Compact" })
+    ]),
+    el("span", { style: "margin-left:auto" }),
+    el("button", { class: "btn ghost sm", type: "button", title: "Keyboard shortcuts",
+      onclick: () => { SHOW_KEYS = !SHOW_KEYS; renderAll(); } }, SHOW_KEYS ? "Hide keys" : "Keys")
+  ]));
+  if (SHOW_KEYS) p.appendChild(keyHelpCard());
+
   p.appendChild(el("div", { class: "bulkbar", id: "bulkbar", hidden: true }));
   p.appendChild(el("div", { class: "stack", id: "draft-list" }));
   renderDraftList();
@@ -3315,6 +3445,13 @@ function runPendingScroll() {
   if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+const GROUP_OF = {
+  requirement: d => d.requirement || "(no requirement)",
+  module:      d => d.module || "(no module)",
+  technique:   d => techName(d.technique, d.lang || "en"),
+  review:      d => d.review === "approved" ? "Approved" : d.review === "rejected" ? "Dropped" : "Still draft"
+};
+
 function renderDraftList() {
   const box = $("#draft-list"); if (!box) return;
   const list = shownDrafts();
@@ -3322,17 +3459,97 @@ function renderDraftList() {
   if (cnt) cnt.textContent = list.length + " of " + S.drafts.length + " shown";
   box.textContent = "";
   const conv = S.conventions || {};
-  list.forEach(d => box.appendChild(draftCard(d, conv)));
+  const by = GROUP_OF[S.review.group];
+
+  if (!by) {
+    list.forEach(d => box.appendChild(draftCard(d, conv)));
+  } else {
+    const order = [], bucket = {};
+    list.forEach(d => {
+      const k = by(d);
+      if (!bucket[k]) { bucket[k] = []; order.push(k); }
+      bucket[k].push(d);
+    });
+    order.forEach(k => {
+      const mine = bucket[k];
+      const ok = mine.filter(d => d.review === "approved").length;
+      const g = el("details", { class: "dgroup", open: order.length <= 8 ? "" : null });
+      g.appendChild(el("summary", {}, [
+        el("span", { class: "tw" }),
+        el("span", { class: "gname", text: k }),
+        el("span", { class: "chip mono", text: mine.length + (mine.length === 1 ? " draft" : " drafts") }),
+        el("span", { class: "chip " + (ok === mine.length ? "good" : ok ? "warn" : ""), text: ok + " approved" }),
+        el("button", { class: "btn sm", type: "button", title: "Select every draft in this group",
+          onclick: e => {
+            e.preventDefault(); e.stopPropagation();
+            mine.forEach(d => PICKED.add(d.uid));
+            renderDraftList(); renderBulkBar();
+          } }, "Select these")
+      ]));
+      const gb = el("div", { class: "gbody" });
+      mine.forEach(d => gb.appendChild(draftCard(d, conv)));
+      g.appendChild(gb);
+      box.appendChild(g);
+    });
+  }
+
   const all = $("#pick-all");
   if (all) all.checked = list.length > 0 && list.every(d => PICKED.has(d.uid));
+  paintCursor();
 }
+
+/* ---- keyboard: a hundred drafts are not a hundred mouse trips ------------ */
+let OPEN_DRAFTS = new Set();   // which cards are expanded while Compact is on
+let CURSOR = "";               // the draft the keys act on
+let SHOW_KEYS = false;
+
+const KEYS = [
+  ["j / \u2193", "next draft"], ["k / \u2191", "previous draft"],
+  ["a", "approve or un-approve it"], ["x", "drop or restore it"],
+  ["o / \u21b5", "fold it open or shut"], ["space", "select it for a bulk action"],
+  ["/", "jump to the filter box"], ["Ctrl + K", "search everything"],
+  ["Ctrl + S", "save the project"], ["Esc", "close, or drop the cursor"]
+];
+function keyHelpCard() {
+  return el("div", { class: "card tight" }, [
+    el("h3", { text: "Keyboard", style: "margin-bottom:8px" }),
+    el("p", { class: "card-sub", text: "The single letters work while the cursor is on a card and you are not typing in a field." }),
+    el("div", { class: "keyhelp" }, KEYS.map(k =>
+      el("div", {}, [el("kbd", { text: k[0] }), el("span", { text: k[1] })])))
+  ]);
+}
+
+function paintCursor() {
+  document.querySelectorAll(".draft.cursor").forEach(x => x.classList.remove("cursor"));
+  if (!CURSOR) return;
+  const c = document.getElementById("d-" + CURSOR);
+  if (c) c.classList.add("cursor");
+}
+function moveCursor(by) {
+  const list = shownDrafts();
+  if (!list.length) return;
+  let i = list.findIndex(d => d.uid === CURSOR);
+  i = i < 0 ? (by > 0 ? 0 : list.length - 1) : Math.min(list.length - 1, Math.max(0, i + by));
+  CURSOR = list[i].uid;
+  paintCursor();
+  const c = document.getElementById("d-" + CURSOR);
+  if (c) {
+    // a card inside a shut group is a cursor you cannot see
+    const g = c.closest("details.dgroup");
+    if (g && !g.open) { g.open = true; }
+    c.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+}
+const cursorDraft = () => S.drafts.filter(d => d.uid === CURSOR)[0];
 
 function refreshReview() { renderRail(); renderKpis(); renderDraftList(); renderBulkBar(); }
 
 function draftCard(d, conv) {
+  const folded = S.review.compact && !OPEN_DRAFTS.has(d.uid);
   const card = el("div", { id: "d-" + d.uid, class: "draft "
     + (d.review === "approved" ? "approved " : d.review === "rejected" ? "rejected " : "")
-    + (PICKED.has(d.uid) ? "picked" : "") });
+    + (PICKED.has(d.uid) ? "picked " : "") + (folded ? "compact " : "")
+    + (CURSOR === d.uid ? "cursor" : "") });
   const health = healthOf(d, true);
   const cmpId = comparableId(d);
 
@@ -3351,6 +3568,10 @@ function draftCard(d, conv) {
 
   card.appendChild(el("header", {}, [
     pick,
+    S.review.compact ? el("button", {
+      class: "fold", type: "button", title: folded ? "Open this draft" : "Fold this draft",
+      onclick: () => { toggleFold(d); }
+    }, folded ? "\u25b8" : "\u25be") : null,
     (d.origin === "archive" || !d.requirement)
       ? el("span", { class: "grip", text: d.origin === "archive" ? "archive · " + d.templateId : "—" })
       : el("button", { class: "chip mono", type: "button", title: "Open " + d.requirement,
@@ -3978,6 +4199,191 @@ function linkArchiveCase(c, req, acLabel) {
   toast(c.tcid + " linked to " + req.key + (d.acRef ? " " + d.acRef : "") + ".");
 }
 
+/* ------------------------------------------------ overlays and shortcuts */
+/* One place to peek at a case without losing the page you were on, one place
+   to reach anything by name, and the keys that make a hundred drafts bearable. */
+
+function closeOverlays() {
+  let had = false;
+  Array.prototype.slice.call(document.querySelectorAll(".scrim, .drawer"))
+    .forEach(x => { x.remove(); had = true; });
+  return had;
+}
+
+/* ---- the drawer: a case read beside the page, not instead of it ---------- */
+/* What slides in is the same case card the rest of the app uses, so nothing
+   here is a second rendering of a test case that can drift from the first. */
+function showArchiveCase(c) {
+  closeOverlays();
+  const scrim = el("div", { class: "scrim", style: "padding:0",
+    onclick: e => { if (e.target === scrim) closeOverlays(); } });
+  const box = el("aside", { class: "drawer", role: "dialog", "aria-label": c.tcid + " " + c.name });
+  const h = healthOf(c);
+
+  box.appendChild(el("header", {}, [
+    el("span", { class: "mono small", text: c.tcid }),
+    el("h3", { text: c.name, title: c.name }),
+    healthChip(h),
+    el("button", { class: "btn primary sm", type: "button",
+      onclick: () => { closeOverlays(); convertArchiveCases([c]); } }, "Carry over to Review"),
+    el("button", { class: "btn ghost sm", type: "button", title: "Close (Esc)", onclick: closeOverlays }, "×")
+  ]));
+
+  const card = el("div", { class: "reqcard" }, el("header", {}, [
+    el("span", { class: "key", text: c.tcid }),
+    el("span", { class: "sum", text: c.name }),
+    c.type ? el("span", { class: "chip", text: c.type }) : null,
+    c.priority ? el("span", { class: "chip", text: c.priority }) : null,
+    c.status ? el("span", { class: "chip", text: c.status }) : null,
+    c.requirement ? el("span", { class: "chip mono accent", text: c.requirement }) : null
+  ].filter(Boolean)));
+
+  const body = el("div", { class: "body" });
+  if (c.path || c.module) body.appendChild(el("p", { class: "small", text: c.path || c.module }));
+  if (c.description) body.appendChild(el("p", { text: c.description }));
+  if (c.precondition) body.appendChild(el("div", { class: "note",
+    html: "<strong>Precondition</strong><br>" + escapeHtml(c.precondition).replace(/\n/g, "<br>") }));
+
+  body.appendChild(el("details", { class: "raw", open: h.score < 85 ? "" : null }, [
+    el("summary", { text: "Test health — " + h.score + " / 100 · " + h.band.label }),
+    healthList(h.checks)
+  ]));
+
+  const tw = el("div", { class: "tablewrap" });
+  const t = el("table", { class: "steps" });
+  t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" })])));
+  const tb = el("tbody");
+  c.steps.forEach((x, i) => tb.appendChild(el("tr", {}, [
+    el("td", { class: "id", text: String(i + 1) }),
+    el("td", { text: x.action }),
+    el("td", { text: x.expected || "—" })
+  ])));
+  t.appendChild(tb); tw.appendChild(t); body.appendChild(tw);
+
+  card.appendChild(body);
+  box.appendChild(el("div", { class: "drawerbody" }, card));
+  document.body.appendChild(scrim);
+  document.body.appendChild(box);
+  const first = box.querySelector("header button");
+  if (first) first.focus();
+}
+
+/* ---- Ctrl+K ------------------------------------------------------------- */
+/* Rebuilt whenever the counts move, not on every keystroke: a knowledge base
+   of several thousand cases would otherwise be re-lowercased as you type. */
+let SEARCH_INDEX = null, SEARCH_STAMP = "";
+function searchIndex() {
+  const stamp = S.archive.length + "/" + S.history.length + "/" + S.requirements.length + "/" + S.drafts.length;
+  if (SEARCH_INDEX && SEARCH_STAMP === stamp) return SEARCH_INDEX;
+  const rows = [];
+  STAGES.forEach(st => rows.push({
+    kind: "Go to", key: String(STAGES.indexOf(st) + 1), name: st.label, meta: "stage",
+    hay: st.label.toLowerCase(), open: () => goto(st.id)
+  }));
+  S.archive.forEach(c => rows.push({
+    kind: "Knowledge base", key: c.tcid, name: c.name, meta: c.path || c.module || "",
+    hay: (c.tcid + " " + c.name + " " + (c.path || "") + " " + c.module + " " + c.tags + " " +
+          c.requirement + " " + c.steps.map(x => x.action).join(" ")).toLowerCase(),
+    open: () => { goto("archive"); showArchiveCase(c); }
+  }));
+  S.requirements.forEach(r => rows.push({
+    kind: "This release", key: r.key, name: r.summary, meta: r.ac.length + " AC",
+    hay: (r.key + " " + r.summary + " " + r.ac.map(a => a.text).join(" ")).toLowerCase(),
+    open: () => goto("requirements", null, "req-" + r.key)
+  }));
+  S.history.forEach(r => rows.push({
+    kind: "Past requirements", key: r.key, name: r.summary, meta: linkedCases(r).length + " cases",
+    hay: (r.key + " " + r.summary).toLowerCase(),
+    open: () => goto("archive", null, "h-" + r.key)
+  }));
+  S.drafts.forEach(d => rows.push({
+    kind: "Drafts", key: d.requirement || "—", name: d.name,
+    meta: techShort(d.technique) + (d.review === "approved" ? " · approved" : ""),
+    hay: (d.name + " " + d.requirement + " " + d.technique + " " + d.module).toLowerCase(),
+    open: () => { S.stage = "review"; PENDING_SCROLL = "d-" + d.uid; renderAll(); }
+  }));
+  SEARCH_INDEX = rows; SEARCH_STAMP = stamp;
+  return rows;
+}
+
+const SEARCH_ORDER = ["Go to", "This release", "Knowledge base", "Drafts", "Past requirements"];
+
+function searchHits(q) {
+  const t = clean(q).toLowerCase();
+  if (!t) return [];
+  const terms = t.split(" ").filter(Boolean);
+  const byKind = {};
+  searchIndex().forEach(r => {
+    if (!terms.every(w => r.hay.indexOf(w) >= 0)) return;
+    const head = (r.key + " " + r.name).toLowerCase();
+    (byKind[r.kind] = byKind[r.kind] || []).push({
+      r: r, rank: terms.every(w => head.indexOf(w) >= 0) ? 0 : 1
+    });
+  });
+  // The kinds come in a fixed order so the list never reshuffles under you, and
+  // each is capped so one huge knowledge base cannot crowd the others out.
+  const keep = [];
+  SEARCH_ORDER.forEach(kind => {
+    (byKind[kind] || []).sort((a, b) => a.rank - b.rank)
+      .slice(0, 6).forEach(x => keep.push(x.r));
+  });
+  return keep.slice(0, 30);
+}
+
+function openPalette() {
+  closeOverlays();
+  const scrim = el("div", { class: "scrim", onclick: e => { if (e.target === scrim) closeOverlays(); } });
+  const box = el("div", { class: "palette", role: "dialog", "aria-label": "Search everything" });
+  const input = el("input", { type: "text", id: "palette-q", autocomplete: "off",
+    placeholder: "Search test cases, requirements, drafts — or a stage by name…" });
+  const hits = el("div", { class: "phits", id: "palette-hits" });
+  let list = [], at = 0;
+
+  const paint = () => {
+    hits.textContent = "";
+    if (!list.length) {
+      hits.appendChild(el("p", { class: "small", style: "padding:14px",
+        text: clean(input.value) ? "Nothing matches that." : "Type to search everything the project holds." }));
+      return;
+    }
+    let kind = "";
+    list.forEach((r, i) => {
+      if (r.kind !== kind) { kind = r.kind; hits.appendChild(el("div", { class: "pgroup", text: kind })); }
+      hits.appendChild(el("button", {
+        class: "phit", type: "button", "aria-selected": i === at ? "true" : "false",
+        onmousemove: () => { if (at !== i) { at = i; paint(); } },
+        onclick: () => { closeOverlays(); r.open(); }
+      }, [
+        el("span", { class: "pk", text: r.key }),
+        el("span", { class: "pn", text: r.name, title: r.name }),
+        r.meta ? el("span", { class: "pm", text: r.meta }) : null
+      ].filter(Boolean)));
+    });
+    const sel = hits.querySelector('[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+  };
+
+  input.addEventListener("input", () => { list = searchHits(input.value); at = 0; paint(); });
+  input.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") { e.preventDefault(); at = Math.min(at + 1, list.length - 1); paint(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); at = Math.max(at - 1, 0); paint(); }
+    else if (e.key === "Enter" && list[at]) { e.preventDefault(); closeOverlays(); list[at].open(); }
+  });
+
+  box.appendChild(input);
+  box.appendChild(hits);
+  box.appendChild(el("div", { class: "pfoot" }, [
+    el("span", {}, [el("kbd", { text: "↑↓" }), document.createTextNode(" move")]),
+    el("span", {}, [el("kbd", { text: "↵" }), document.createTextNode(" open")]),
+    el("span", {}, [el("kbd", { text: "Esc" }), document.createTextNode(" close")]),
+    el("span", { style: "margin-left:auto", text: searchIndex().length + " things indexed" })
+  ]));
+  scrim.appendChild(box);
+  document.body.appendChild(scrim);
+  paint();
+  input.focus();
+}
+
 /* ---------------------------------------------------------- stage: export */
 function viewExport(p) {
   const wantQTest = S.gen.target !== "tosca";
@@ -4210,6 +4616,56 @@ window.addEventListener("afterprint", () => {
 });
 
 /* ---------------------------------------------------------------- boot */
+/* Keys are global, but a letter typed into a step is a letter, not a command. */
+const TYPING = () => {
+  const a = document.activeElement;
+  return !!a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable);
+};
+function toggleFold(d) {
+  if (OPEN_DRAFTS.has(d.uid)) OPEN_DRAFTS.delete(d.uid); else OPEN_DRAFTS.add(d.uid);
+  refreshDraft(d);
+}
+
+document.addEventListener("keydown", e => {
+  const meta = e.ctrlKey || e.metaKey;
+
+  if (meta && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
+  if (meta && e.key.toLowerCase() === "s") { e.preventDefault(); $("#btn-save").click(); return; }
+  if (e.key === "Escape") {
+    if (closeOverlays()) return;
+    if (CURSOR) { CURSOR = ""; paintCursor(); }
+    return;
+  }
+  if (meta || e.altKey || TYPING() || document.querySelector(".scrim, .drawer")) return;
+
+  if (e.key === "/") { e.preventDefault(); const f = $("#dr-search") || $("#arc-search"); if (f) f.focus(); return; }
+  if (S.stage !== "review") return;
+
+  const k = e.key.toLowerCase();
+  if (k === "j" || e.key === "ArrowDown") { e.preventDefault(); moveCursor(1); return; }
+  if (k === "k" || e.key === "ArrowUp")   { e.preventDefault(); moveCursor(-1); return; }
+
+  const d = cursorDraft();
+  if (!d) return;
+  if (k === "a") {
+    e.preventDefault();
+    d.review = d.review === "approved" ? "draft" : "approved";
+    save(); refreshDraft(d);
+  } else if (k === "x") {
+    e.preventDefault();
+    d.review = d.review === "rejected" ? "draft" : "rejected";
+    save(); refreshDraft(d);
+  } else if (k === "o" || e.key === "Enter") {
+    e.preventDefault();
+    if (S.review.compact) toggleFold(d);
+    else document.getElementById("d-" + d.uid).scrollIntoView({ block: "center", behavior: "smooth" });
+  } else if (e.key === " ") {
+    e.preventDefault();
+    if (PICKED.has(d.uid)) PICKED.delete(d.uid); else PICKED.add(d.uid);
+    refreshDraft(d);
+  }
+});
+
 $("#btn-undo").addEventListener("click", undoLast);
 $("#btn-save").addEventListener("click", () => {
   const name = "testfall-schmiede-" + new Date().toISOString().slice(0, 10) + ".json";

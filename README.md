@@ -68,6 +68,42 @@ drafts, placing cases in the tree, removing a branch, clearing the archive, forg
 set of drafts — each takes a snapshot first, and an *Undo* button appears in the header.
 One step, which is what these actions need.
 
+**Ctrl + K searches everything** — archived cases by id, name, module or step text,
+requirements and their criteria, past requirements, drafts, and the pipeline stages by
+name. Arrows move, Enter opens, Esc closes. The index is rebuilt when the counts move, not
+on every keystroke, so a knowledge base of several thousand cases is not re-scanned as you
+type. Results come in a fixed order of kinds and each kind is capped, so the list never
+reshuffles under your finger and one huge archive cannot crowd the rest out.
+
+**A case opens in a drawer**, not instead of the page. Clicking a row of the archive table,
+a `≈ TC-…` chip or a search hit slides it in over whatever you were doing, with its health
+checklist and steps; Esc or a click outside closes it and the page is where you left it.
+
+**Saved views.** Any combination of the archive's filters — tree node, type, health band,
+search text — can be kept under a name and brought back with one click. They travel in the
+project file, because a view describes the project rather than the browser.
+
+**The pipeline folds away.** The rail collapses to the step numbers when you want the width,
+and remembers that between visits.
+
+**Review scales.** *Group by* requirement, module, technique or review state turns one long
+list into folds, each with its counts and a *Select these* button. *Compact* collapses every
+draft to its header; open the ones you need. And with the cursor on a card:
+
+| Key | Does |
+|---|---|
+| `j` `k` or `↓` `↑` | move the cursor, opening a shut group to reach a card |
+| `a` | approve or un-approve |
+| `x` | drop or restore |
+| `o` or `Enter` | fold open or shut |
+| `space` | select for a bulk action |
+| `/` | jump to the filter box |
+| `Ctrl + K` / `Ctrl + S` | search everything / save the project |
+| `Esc` | close an overlay, or drop the cursor |
+
+A letter typed into a step is a letter, never a command — the single-key shortcuts stand
+down whenever the focus is in a field.
+
 **Every figure is a way into what it counted.** The tiles, the matrix cells, the technique
 bars, the gap rows and the requirement rows are all buttons: clicking one opens the stage
 that can act on it, filtered to that slice. Review then shows which filter is active as a
