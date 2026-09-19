@@ -317,6 +317,18 @@ button.barrow:hover .bartrack>i{filter:brightness(1.12)}
 .checklist li.na{opacity:.55}
 button.barrow.on{background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line)}
 
+/* ---------- how deep to generate ---------- */
+.depthrow{display:grid; grid-template-columns:minmax(78px,auto) 1fr auto; gap:12px; align-items:baseline;
+  width:100%; text-align:left; font:inherit; font-size:12.5px; color:inherit; cursor:pointer;
+  padding:9px 11px; border:1px solid var(--line); border-radius:7px; background:var(--surface)}
+.depthrow:hover{background:var(--surface-3)}
+.depthrow.on{border-color:var(--accent); background:var(--accent-soft)}
+.depthrow .dk{font-weight:600; font-size:13px}
+.depthrow.on .dk{color:var(--accent)}
+.depthrow .dh{color:var(--muted)}
+.depthrow .dn{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--muted)}
+.depthrow.on .dn{color:var(--accent); font-weight:600}
+
 /* ---------- traceability: requirement, criterion, case ---------- */
 .tracereq{border:1px solid var(--line); border-radius:8px; background:var(--surface); overflow:hidden}
 .tracereq+.tracereq{margin-top:8px}
@@ -493,6 +505,7 @@ details.raw[open] summary{margin-bottom:8px}
       <input type="file" id="project-file" accept=".json" hidden>
       <button class="btn sm" id="btn-theme" type="button">Theme</button>
       <button class="btn sm" id="btn-sample" type="button">Load sample data</button>
+      <button class="btn sm" id="btn-sample-sap" type="button" title="An invented SAP project, so the SAP side can be seen">SAP sample</button>
       <button class="btn sm" id="btn-reset" type="button">Clear all</button>
     </div>
   </header>
@@ -534,6 +547,7 @@ const S = {
     positive:true, negative:true, boundary:true, roles:true, e2e:true,
     usePreamble:true, useEpilogue:true, namePattern:"", minScore:0.10,
     lang:"auto",                    // auto = whatever language the archive is written in
+    platform:"auto",                // auto = read the system under test off the archive
     target:"qtest"                  // qtest | tosca | both
   },
   exp: { delimiter:";", bom:true, repeatName:true, traceability:true, onlyApproved:true, headerLang:"archive", customFields:true, modulePath:true, pathSep:" > " },
@@ -1456,6 +1470,7 @@ function matchesFor(req, limit) {
 /* ------------------------------------------- conventions from the archive */
 function deriveConventions() {
   resetHealth();
+  TCODES = null;
   const A = S.archive;
   if (!A.length) { S.conventions = null; return; }
 
@@ -1829,6 +1844,48 @@ function healthList(checks) {
   ])));
 }
 
+/* ---- how many cases a requirement is worth ------------------------------- */
+/* Eight cases from one ticket is not thoroughness, it is a review queue. The
+   archive already says what this team thinks a requirement costs, so the
+   choice is offered against that number rather than against a default. */
+const DEPTHS = [
+  { key: "lean", label: "Lean",
+    hint: "one end-to-end case per ticket, plus a negative case only where a criterion asks for one",
+    gen: { positive: false, negative: true, boundary: false, roles: false, e2e: true } },
+  { key: "balanced", label: "Balanced",
+    hint: "one case per criterion, the negatives the criteria ask for, and one end-to-end case",
+    gen: { positive: true, negative: true, boundary: false, roles: false, e2e: true } },
+  { key: "thorough", label: "Thorough",
+    hint: "everything above plus boundary values and a permission matrix wherever they apply",
+    gen: { positive: true, negative: true, boundary: true, roles: true, e2e: true } }
+];
+const depthMatches = d =>
+  ["positive","negative","boundary","roles","e2e"].every(k => S.gen[k] === d.gen[k]);
+const currentDepth = () => (DEPTHS.filter(depthMatches)[0] || null);
+function applyDepth(d) {
+  Object.keys(d.gen).forEach(k => { S.gen[k] = d.gen[k]; });
+  save();
+}
+
+/* What this team's own archive spends on one ticket. */
+function archiveCasesPerReq() {
+  const per = {};
+  S.archive.forEach(c => { const k = clean(c.requirement); if (k) per[k] = (per[k] || 0) + 1; });
+  const counts = Object.keys(per).map(k => per[k]);
+  if (counts.length < 2) return null;
+  return { reqs: counts.length, avg: Math.round(counts.reduce((a, b) => a + b, 0) / counts.length * 10) / 10 };
+}
+
+/* How many each preset would produce for the tickets now loaded. */
+function depthCount(d) {
+  const keep = {};
+  ["positive","negative","boundary","roles","e2e"].forEach(k => { keep[k] = S.gen[k]; S.gen[k] = d.gen[k]; });
+  let n = 0;
+  try { S.requirements.forEach(r => { n += generateFor(r).length; }); }
+  finally { Object.keys(keep).forEach(k => { S.gen[k] = keep[k]; }); }
+  return n;
+}
+
 /* ------------------------------------------------------------ generation */
 const TRIGGER_SPLIT = /\s+(?:then|so that|results in|führt zu|fuehrt zu|,\s*dann|dann|→|->|=>)\s+/i;
 const WHEN_LEAD = /^(when|if|once|as soon as|wenn|falls|sobald|nachdem)\b[\s:]+/i;
@@ -2091,7 +2148,7 @@ function runGeneration(onlyKey) {
   const keys = new Set(targets.map(r => r.key));
   // Replace untouched drafts, but never what you chose by hand: an approval, or
   // a case you carried over from the knowledge base onto a criterion.
-  const kept = S.drafts.filter(d => !keys.has(d.requirement) || d.review === "approved" || fromArchive(d));
+  const kept = S.drafts.filter(d => !keys.has(d.requirement) || d.review === "approved" || fromArchive(d) || d.manual);
   const fresh = [];
   targets.forEach(r => generateFor(r).forEach(d => fresh.push(d)));
   S.drafts = kept.concat(fresh);
@@ -2613,6 +2670,31 @@ function viewArchive(p) {
     convCard.appendChild(list);
   }
 
+  if (isSap()) {
+    const codes = learnedTcodes();
+    const sapCard = el("div", { class: "card" }, [
+      el("div", { class: "row" }, [
+        el("h3", { text: "The system under test", style: "margin:0" }),
+        el("span", { style: "margin-left:auto" }),
+        el("span", { class: "chip accent", text: PLATFORM_LABEL[platform()] +
+          (S.gen.platform === "auto" ? " \u00b7 detected" : " \u00b7 set by you") })
+      ]),
+      el("p", { class: "card-sub", style: "margin-top:8px", text: codes.length
+        ? "Transaction codes read out of your own archive and tickets. Where a ticket names one, the generated steps call it by code and the SAP angles on that ticket are shaped around it."
+        : "No transaction code has turned up in your archive yet. Import a qTest export that quotes them and they will be picked up here." })
+    ]);
+    if (codes.length) {
+      sapCard.appendChild(el("div", { class: "row" }, codes.slice(0, 24).map(t => el("span", {
+        class: "chip mono" + (t.what ? " accent" : ""),
+        title: (t.what ? t.what + " \u2014 " : "") + "named " + t.n + (t.n === 1 ? " time" : " times")
+      }, t.code + " \u00b7 " + t.n))));
+      const known = codes.filter(t => t.what).length;
+      sapCard.appendChild(el("p", { class: "small", style: "margin-top:8px",
+        text: codes.length + " distinct codes, " + known + " of them in the public SAP reference the app carries. The rest are yours \u2014 they are used as written, never guessed at." }));
+    }
+    p.appendChild(sapCard);
+  }
+
   const histCard = el("div", { class: "card" }, [
     el("h3", { text: "Past requirements" }),
     el("p", { class: "card-sub", text: "The tickets your archived cases were written for — same formats as the release import. Linked automatically wherever a case names its issue key." })
@@ -2682,7 +2764,8 @@ function viewArchive(p) {
     p.appendChild(el("div", { class: "empty" }, [
       el("p", { text: "The knowledge base has no test cases yet." }),
       el("div", { class: "row", style: "justify-content:center;margin-top:10px" }, [
-        el("button", { class: "btn sm", type: "button", onclick: loadSample }, "Load a sample knowledge base")
+        el("button", { class: "btn sm", type: "button", onclick: () => loadSample() }, "Load a sample knowledge base"),
+        el("button", { class: "btn sm", type: "button", onclick: () => loadSample("sap") }, "\u2026or an SAP one")
       ])
     ]));
     return;
@@ -3071,7 +3154,14 @@ function viewRequirements(p) {
 
   p.appendChild(el("div", { class: "row" }, [
     el("span", { class: "small", text: S.requirements.length + " requirements · " + S.requirements.reduce((n, r) => n + r.ac.length, 0) + " acceptance criteria" }),
-    el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("removing the requirements"); S.requirements = []; buildIdf(); save(); renderAll(); } }, "Remove all requirements")
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => {
+      const n = S.drafts.filter(d => d.requirement && d.review !== "approved").length;
+      pushUndo("removing the requirements");
+      S.requirements = [];
+      S.drafts = S.drafts.filter(d => !d.requirement || d.review === "approved");
+      buildIdf(); save(); renderAll();
+      toast("Requirements removed" + (n ? " with " + n + " unapproved draft" + (n === 1 ? "" : "s") : "") + ".");
+    } }, "Remove all requirements")
   ]));
 
   S.requirements.forEach((r, ri) => {
@@ -3081,7 +3171,12 @@ function viewRequirements(p) {
       el("span", { class: "sum", text: r.summary }),
       r.issuetype ? el("span", { class: "chip", text: r.issuetype }) : null,
       r.fixVersion ? el("span", { class: "chip accent", text: r.fixVersion }) : null,
-      el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.requirements.splice(ri, 1); save(); renderAll(); } }, "Remove")
+      el("span", { class: "small", text: S.drafts.filter(d => d.requirement === r.key).length + " test cases" }),
+      el("button", { class: "btn sm", type: "button",
+        title: "Write the test cases for this ticket alone",
+        onclick: () => { runGeneration(r.key); goto("review", { draftReq: r.key }); } }, "Generate test cases"),
+      el("button", { class: "btn ghost sm", type: "button", title: "Remove this ticket and the drafts written for it",
+        onclick: () => removeRequirement(ri) }, "Remove")
     ]));
     const body = el("div", { class: "body" });
     if (r.components || r.labels) body.appendChild(el("div", { class: "row" }, uniq((r.components + "," + r.labels).split(",").map(clean)).map(c => el("span", { class: "chip", text: c }))));
@@ -3102,6 +3197,29 @@ function viewRequirements(p) {
       r.ac.push(makeAc(addIn.value)); save(); renderAll();
     });
     body.appendChild(el("label", { class: "field" }, [el("span", { text: "Add criterion (Enter to confirm)" }), addIn]));
+    const angles = sapAnglesFor(r);
+    if (angles.length) {
+      const codes = reqTcodes(r);
+      const det = el("details", { class: "raw" }, [
+        el("summary", { text: "SAP test design \u2014 " + angles.length +
+          (angles.length === 1 ? " angle this ticket touches" : " angles this ticket touches") +
+          (angles.filter(x => x.added).length ? " \u00b7 " + angles.filter(x => x.added).length + " added" : "") })
+      ]);
+      det.appendChild(el("p", { class: "small", text: codes.length
+        ? "Transaction " + codes.slice(0, 3).join(", ") + " named in this ticket. " +
+          "These are the checks a criterion never writes down but an SAP tester is expected to make. Add the ones that apply."
+        : "These are the checks a criterion never writes down but an SAP tester is expected to make. Add the ones that apply." }));
+      det.appendChild(el("div", { class: "stack", style: "margin-top:8px" }, angles.map(x => el("div", { class: "matchrow" }, [
+        el("span", { class: "chip " + (x.added ? "good" : "accent"),
+          text: (x.a.label[genLangFor(r)] || x.a.label.en) }),
+        el("span", { class: "nm small", text: (x.a.why[genLangFor(r)] || x.a.why.en) }),
+        x.added
+          ? el("span", { class: "small", text: "added" })
+          : el("button", { class: "btn sm", type: "button", onclick: () => addSapCase(r, x.a) }, "Add this case")
+      ]))));
+      body.appendChild(det);
+    }
+
     if (r.description) body.appendChild(el("details", { class: "raw" }, [
       el("summary", { text: "Original ticket text" }),
       el("p", { class: "small", style: "white-space:pre-wrap", text: r.description })
@@ -3109,6 +3227,340 @@ function viewRequirements(p) {
     card.appendChild(body);
     p.appendChild(card);
   });
+}
+
+/* A ticket and the drafts written for it are one thing. Leaving the drafts
+   behind is how a project ends up with cases nobody can trace, and how the
+   Review list keeps counting work that no longer has a reason to exist.
+   Anything already approved is your decision, so that survives. */
+function removeRequirement(ri) {
+  const r = S.requirements[ri];
+  if (!r) return;
+  const mine = S.drafts.filter(d => d.requirement === r.key);
+  const keep = mine.filter(d => d.review === "approved");
+  pushUndo("removing " + r.key);
+  S.requirements.splice(ri, 1);
+  S.drafts = S.drafts.filter(d => d.requirement !== r.key || d.review === "approved");
+  buildIdf(); save(); renderAll();
+  const gone = mine.length - keep.length;
+  toast(r.key + " removed" +
+    (gone ? " with " + gone + " draft" + (gone === 1 ? "" : "s") : "") +
+    (keep.length ? " \u2014 " + keep.length + " approved case" + (keep.length === 1 ? "" : "s") + " kept" : "") + ".");
+}
+
+/* Drafts can also be orphaned by opening an older project file. */
+function orphanDrafts() {
+  const keys = new Set(S.requirements.map(r => r.key));
+  return S.drafts.filter(d => d.requirement && !keys.has(d.requirement));
+}
+
+/* ------------------------------------------------ the system under test */
+/* qTest holds the cases; the thing being tested is usually something else.
+   For an SAP shop that changes what a professional test case looks like: a
+   transaction is called by its code, a posting produces a document number,
+   the status bar carries the verdict, and authorisation is a test of its own
+   rather than an afterthought. Nothing here is read out of your data — the
+   reference below is public SAP, and the transaction codes your project
+   actually uses are learned from your own archive. */
+
+const TCODE_REF = {
+  VA01:"Kundenauftrag anlegen", VA02:"Kundenauftrag ändern", VA03:"Kundenauftrag anzeigen",
+  VA05:"Liste der Kundenaufträge", VL01N:"Auslieferung anlegen", VL02N:"Auslieferung ändern",
+  VL03N:"Auslieferung anzeigen", VF01:"Faktura anlegen", VF02:"Faktura ändern", VF03:"Faktura anzeigen",
+  VK11:"Konditionssatz anlegen", XD01:"Kunde anlegen", XD02:"Kunde ändern", XD03:"Kunde anzeigen",
+  ME21N:"Bestellung anlegen", ME22N:"Bestellung ändern", ME23N:"Bestellung anzeigen",
+  ME51N:"Banf anlegen", ME52N:"Banf ändern", ME53N:"Banf anzeigen",
+  MM01:"Material anlegen", MM02:"Material ändern", MM03:"Material anzeigen",
+  MMBE:"Bestandsübersicht", MB51:"Materialbelegliste", MIGO:"Warenbewegung buchen",
+  MIRO:"Rechnungseingang buchen", MK01:"Lieferant anlegen (Einkauf)",
+  FB60:"Kreditorenrechnung buchen", FB70:"Debitorenrechnung buchen", FB03:"Beleg anzeigen",
+  FBL1N:"Kreditoren-Einzelposten", FBL5N:"Debitoren-Einzelposten", FS10N:"Sachkontensaldo",
+  "F-02":"Sachkontenbuchung", "F-28":"Zahlungseingang buchen",
+  LT01:"Transportauftrag anlegen", LT03:"Transportauftrag zur Lieferung", LS24:"Bestand je Material",
+  SU01:"Benutzerpflege", SU53:"Letzte Berechtigungsprüfung", PFCG:"Rollenpflege",
+  SE16N:"Tabelleninhalt anzeigen", SM37:"Jobübersicht", SM35:"Batch-Input-Mappen",
+  WE02:"IDoc anzeigen", WE05:"IDoc-Liste", WE19:"IDoc-Test", SLG1:"Anwendungsprotokoll",
+  ST22:"ABAP-Dumps", SP01:"Spool-Aufträge", NACE:"Nachrichtensteuerung", OB52:"Buchungsperioden"
+};
+
+const SAP_WORDS = /\b(sap|transaktion|t-?code|buchungskreis|werk|lagerort|verkaufsorganisation|vertriebsweg|einkaufsorganisation|sparte|belegnummer|beleg|materialstamm|kundenstamm|lieferantenstamm|stammdaten|customizing|mandant|idoc|batch-?input|nachrichtenart|nachrichtentyp|statusleiste|matchcode|selektionsbild|fiori|kachel|launchpad|abap|bapi|spool|company code|plant|sales organi[sz]ation|posting|document number)\b/gi;
+
+/* A token is a transaction code when the public reference knows it, or when it
+   reads like one — a letter, then something with a digit in it. The digit rule
+   is what keeps ordinary capitals out; the exclusion keeps your own ids out,
+   since TF-201 and BIB-2101 have the same shape as a t-code and are not one. */
+const TCODE_NOISE = new Set(["CSV","ISBN","PDF","XML","JSON","HTML","HTTP","URL","GUI","SAP","EDI",
+  "API","REST","SOAP","UTF","ERP","CRM","OK","ID","AC","TC","UI","IT","QA","DE","EN","PC",
+  "E2E","UAT","SIT","FAT","B2B","B2C","UTF8","SHA1","MD5","ISO"]);
+const looksLikeTcode = w => {
+  if (TCODE_REF[w]) return true;
+  if (TCODE_NOISE.has(w)) return false;
+  if (/^[A-Z]{1,6}-\d+$/.test(w)) return false;            // an id or a shelf mark, not a t-code
+                                                            // (F-02 and the like come from the reference above)
+  // Four characters upwards for the guess. Three is too little to tell a
+  // transaction from a tag: E2E, UAT and SIT all read like one otherwise.
+  // Anything shorter has to be in the reference, which is where F-02 comes from.
+  if (!/^[A-Z][A-Z0-9_\-\/]{3,19}$/.test(w)) return false;
+  return /\d/.test(w) && /[A-Z]/.test(w.slice(1));
+};
+
+let TCODES = null, TCODES_STAMP = "";
+function learnedTcodes() {
+  const stamp = S.archive.length + "/" + S.requirements.length;
+  if (TCODES && TCODES_STAMP === stamp) return TCODES;
+  const count = {};
+  const scan = t => (String(t).match(/[A-Z][A-Z0-9_\-\/]{2,19}/g) || [])
+    .forEach(w => { if (looksLikeTcode(w)) count[w] = (count[w] || 0) + 1; });
+  S.archive.forEach(c => scan(archiveText(c)));
+  S.requirements.forEach(r => scan(reqText(r)));
+  TCODES = Object.keys(count)
+    .map(k => ({ code: k, n: count[k], what: TCODE_REF[k] || "" }))
+    .sort((a, b) => b.n - a.n || a.code.localeCompare(b.code));
+  TCODES_STAMP = stamp;
+  return TCODES;
+}
+
+function detectPlatform() {
+  if (!S.archive.length && !S.requirements.length) return "generic";
+  const text = S.archive.map(archiveText).concat(S.requirements.map(reqText)).join(" ");
+  const words = (text.match(SAP_WORDS) || []).length;
+  const codes = learnedTcodes().reduce((n, t) => n + t.n, 0);
+  if (words + codes < 3) return "generic";
+  return /\b(fiori|kachel|launchpad)\b/i.test(text) && !/transaktion/i.test(text) ? "fiori" : "sapgui";
+}
+const platform = () => (S.gen.platform && S.gen.platform !== "auto") ? S.gen.platform : detectPlatform();
+const isSap = () => platform() !== "generic";
+const PLATFORM_LABEL = { generic: "a web application", sapgui: "SAP GUI", fiori: "SAP Fiori" };
+
+/* The codes a single ticket names, most specific first. */
+function reqTcodes(req) {
+  const found = [];
+  (String(reqText(req)).match(/[A-Z][A-Z0-9_\-\/]{2,19}/g) || []).forEach(w => {
+    if (looksLikeTcode(w) && found.indexOf(w) < 0) found.push(w);
+  });
+  return found;
+}
+
+/* ---- what SAP asks you to test that a criterion never says --------------- */
+const SAPP = {
+  de: {
+    call: t => "Transaktion " + t + " aufrufen",
+    callAny: "Die Transaktion aufrufen",
+    okBar: "Die Statusleiste zeigt eine Erfolgsmeldung (Nachrichtentyp S).",
+    sys: "Das Testsystem und der Mandant der Testumgebung stehen zur Verfügung."
+  },
+  en: {
+    call: t => "Call transaction " + t,
+    callAny: "Call the transaction",
+    okBar: "The status bar shows a success message (message type S).",
+    sys: "The test system and client are available."
+  }
+};
+const sp = l => SAPP[l] || SAPP.en;
+
+const SAP_ANGLES = [
+  {
+    key: "auth", technique: "dt",
+    label: { de: "Berechtigung", en: "Authorisation" },
+    why: { de: "In SAP ist die Berechtigung Teil der Funktion, nicht eine Randnotiz: dieselbe Transaktion verhält sich je Rolle anders.",
+           en: "In SAP authorisation is part of the function, not a footnote: the same transaction behaves differently per role." },
+    when: t => true,
+    build: (L, tc, S2) => ({
+      title: { de: "Berechtigungsprüfung", en: "Authorisation check" },
+      pre: { de: "Je ein Benutzer mit und ohne die zuständige Rolle steht zur Verfügung.",
+             en: "One user with and one without the responsible role are available." },
+      steps: [
+        { a: { de: "Mit dem berechtigten Benutzer anmelden und " + (tc ? "die Transaktion " + tc + " aufrufen" : "die Funktion aufrufen"),
+               en: "Sign in as the entitled user and " + (tc ? "call transaction " + tc : "open the function") },
+          e: { de: "Das Einstiegsbild wird angezeigt und die Funktion ist ausführbar.",
+               en: "The entry screen appears and the function can be run." } },
+        { a: { de: "Mit dem nicht berechtigten Benutzer dasselbe versuchen",
+               en: "Attempt the same as the user without the role" },
+          e: { de: "Der Zugriff wird abgewiesen; SU53 weist das fehlende Berechtigungsobjekt aus.",
+               en: "Access is refused; SU53 names the missing authorisation object." } }
+      ]
+    })
+  },
+  {
+    key: "org", technique: "ep",
+    label: { de: "Organisationsebene", en: "Organisational level" },
+    why: { de: "Was im einen Buchungskreis oder Werk funktioniert, ist im nächsten oft anders eingestellt.",
+           en: "What works in one company code or plant is often configured differently in the next." },
+    when: t => /\b(buchungskreis|werk|lagerort|verkaufsorganisation|vertriebsweg|sparte|einkaufsorganisation|company code|plant|sales organi)/i.test(t),
+    build: (L, tc) => ({
+      title: { de: "zweite Organisationsebene", en: "second organisational level" },
+      pre: { de: "Zwei Organisationseinheiten mit unterschiedlichem Customizing sind bekannt.",
+             en: "Two organisational units with different customising are known." },
+      steps: [
+        { a: { de: "Den Ablauf auf der ersten Organisationsebene ausführen", en: "Run the flow on the first organisational level" },
+          e: { de: "Der Ablauf ist erfolgreich.", en: "The flow succeeds." } },
+        { a: { de: "Denselben Ablauf auf der zweiten Organisationsebene ausführen", en: "Run the same flow on the second organisational level" },
+          e: { de: "Der Ablauf ist ebenfalls erfolgreich und verwendet das dort hinterlegte Customizing.",
+               en: "It succeeds there too and uses that unit's own customising." } }
+      ]
+    })
+  },
+  {
+    key: "doc", technique: "st",
+    label: { de: "Belegnummer und Folgebeleg", en: "Document number and follow-on" },
+    why: { de: "Eine Buchung ohne nachweisbare Belegnummer ist nicht geprüft — und der Folgebeleg zeigt, ob die Kette hält.",
+           en: "A posting without a document number you can point at is not tested — and the follow-on shows whether the chain holds." },
+    when: t => /\b(beleg|auftrag|bestellung|rechnung|lieferung|buchung|document|order|invoice|posting|anlegen|create)/i.test(t),
+    build: (L, tc) => ({
+      title: { de: "Belegnummer und Anzeige", en: "document number and display" },
+      pre: { de: "Die Stammdaten für den Vorgang sind gepflegt.", en: "The master data for the transaction is maintained." },
+      steps: [
+        { a: { de: (tc ? "Transaktion " + tc + " aufrufen und " : "") + "den Vorgang anlegen und sichern",
+               en: (tc ? "Call transaction " + tc + " and " : "") + "create the record and save" },
+          e: { de: "Die Statusleiste nennt die vergebene Belegnummer (Nachrichtentyp S). Die Nummer notieren.",
+               en: "The status bar names the document number issued (message type S). Note it down." } },
+        { a: { de: "Den Beleg über die Anzeige-Transaktion mit dieser Nummer aufrufen",
+               en: "Open the document by that number in the display transaction" },
+          e: { de: "Der Beleg wird mit genau den erfassten Daten angezeigt.",
+               en: "The document appears with exactly the data that was entered." } }
+      ]
+    })
+  },
+  {
+    key: "msg", technique: "epInvalid",
+    label: { de: "Meldung und Nachrichtentyp", en: "Message and message type" },
+    why: { de: "„Es erscheint eine Fehlermeldung“ ist kein Sollergebnis. Nachrichtentyp und Nummer sind es.",
+           en: "“An error appears” is not an expected result. The message type and number are." },
+    when: t => /\b(fehler|meldung|abgewiesen|ungültig|pflicht|error|message|reject|invalid|mandatory)/i.test(t),
+    build: (L, tc) => ({
+      title: { de: "Fehlermeldung mit Nachrichtentyp", en: "error message with its type" },
+      pre: { de: "Ein Datensatz mit einem bewusst fehlerhaften Feld liegt vor.", en: "A record with one deliberately wrong field is prepared." },
+      steps: [
+        { a: { de: "Den fehlerhaften Datensatz erfassen und sichern", en: "Enter the faulty record and save" },
+          e: { de: "Die Verarbeitung wird abgebrochen, die Statusleiste zeigt eine Meldung vom Typ E, und Nachrichtenklasse und -nummer sind im Langtext nachvollziehbar.",
+               en: "Processing stops, the status bar shows a type E message, and its class and number are visible in the long text." } }
+      ]
+    })
+  },
+  {
+    key: "iface", technique: "uc",
+    label: { de: "Schnittstelle", en: "Interface" },
+    why: { de: "Wenn der Beleg ein Nachbarsystem erreichen soll, ist der Test erst dort zu Ende.",
+           en: "If the document is meant to reach a neighbouring system, the test only ends there." },
+    when: t => /\b(idoc|schnittstelle|übertrag|uebertrag|interface|rfc|edi|nachbarsystem|downstream|replikation|transfer)/i.test(t),
+    build: (L, tc) => ({
+      title: { de: "Übergabe an das Nachbarsystem", en: "hand-over to the neighbouring system" },
+      pre: { de: "Die Schnittstelle ist aktiv und die Partnervereinbarung ist gepflegt.",
+             en: "The interface is active and the partner agreement is maintained." },
+      steps: [
+        { a: { de: "Den Vorgang auslösen, der die Übertragung anstößt", en: "Trigger the action that starts the transfer" },
+          e: { de: "Der Vorgang wird gebucht und die Übertragung angestoßen.", en: "The action posts and the transfer starts." } },
+        { a: { de: "Das erzeugte IDoc in WE02 zur Belegnummer suchen", en: "Find the IDoc for that document number in WE02" },
+          e: { de: "Das IDoc steht auf Status 53 (erfolgreich verbucht) und trägt die Daten des Belegs.",
+               en: "The IDoc is in status 53 (posted) and carries the document's data." } },
+        { a: { de: "Den Datensatz im Nachbarsystem prüfen", en: "Check the record in the neighbouring system" },
+          e: { de: "Er ist dort vollständig und mit denselben Werten vorhanden.", en: "It is there in full with the same values." } }
+      ]
+    })
+  },
+  {
+    key: "batch", technique: "uc",
+    label: { de: "Hintergrundverarbeitung", en: "Background processing" },
+    why: { de: "Dialog und Job sind zwei Pfade durch dieselbe Funktion, und der Job hat kein Sollbild, sondern ein Protokoll.",
+           en: "Dialogue and job are two paths through the same function, and the job has no screen to check — it has a log." },
+    when: t => /\b(job|hintergrund|stapel|massen|batch|nachtlauf|periodisch|background|mass|scheduled)/i.test(t),
+    build: (L, tc) => ({
+      title: { de: "Ausführung als Hintergrundjob", en: "run as a background job" },
+      pre: { de: "Eine Variante mit den Selektionswerten des Tests ist gesichert.",
+             en: "A variant holding the test's selection values is saved." },
+      steps: [
+        { a: { de: "Den Report mit dieser Variante als Hintergrundjob einplanen", en: "Schedule the report with that variant as a background job" },
+          e: { de: "Der Job wird eingeplant und startet.", en: "The job is scheduled and starts." } },
+        { a: { de: "In SM37 den Jobstatus und das Joblog prüfen", en: "Check the job status and log in SM37" },
+          e: { de: "Der Job endet mit Status „fertig“ und das Protokoll weist dieselbe Satzanzahl aus wie der Dialoglauf.",
+               en: "The job finishes, and the log reports the same record count as the dialogue run." } }
+      ]
+    })
+  },
+  {
+    key: "output", technique: "ep",
+    label: { de: "Nachrichten- und Ausgabesteuerung", en: "Output determination" },
+    why: { de: "Der Beleg ist erst dann fertig, wenn die Ausgabe bei Kunde, Drucker oder EDI ankommt.",
+           en: "The document is only finished once the output reaches the customer, the printer or EDI." },
+    when: t => /\b(druck|formular|ausgabe|nachrichtenart|e-?mail|versand|print|output|form|spool)\b/i.test(t),
+    build: (L, tc) => ({
+      title: { de: "Ausgabe des Belegs", en: "document output" },
+      pre: { de: "Die Nachrichtenart ist dem Vorgang zugeordnet.", en: "The output type is assigned to the transaction." },
+      steps: [
+        { a: { de: "Den Beleg sichern und die Nachrichtenfindung prüfen", en: "Save the document and check output determination" },
+          e: { de: "Die vorgesehene Nachrichtenart ist mit grünem Status gefunden.", en: "The intended output type is found with a green status." } },
+        { a: { de: "Die Ausgabe verarbeiten und das Ergebnis prüfen (Spool, Mail oder EDI)",
+               en: "Process the output and check the result (spool, mail or EDI)" },
+          e: { de: "Die Ausgabe wird erzeugt und enthält die Daten des Belegs.", en: "The output is produced and carries the document's data." } }
+      ]
+    })
+  },
+  {
+    key: "triad", technique: "st",
+    label: { de: "Anlegen, Ändern, Anzeigen", en: "Create, change, display" },
+    why: { de: "Zu einer Anlege-Transaktion gehören immer die 02 und die 03 — und ein geänderter Beleg muss die Änderung auch zeigen.",
+           en: "A create transaction always comes with its 02 and 03 — and a changed document has to show the change." },
+    when: (t, codes) => codes.some(c => /01N?$/.test(c)),
+    build: (L, tc, codes) => {
+      const base = (codes || []).filter(c => /01N?$/.test(c))[0] || tc || "";
+      const ch = base.replace(/01(N?)$/, "02$1"), di = base.replace(/01(N?)$/, "03$1");
+      return {
+        title: { de: "Ändern und Anzeigen", en: "change and display" },
+        pre: { de: "Ein mit " + (base || "der Anlege-Transaktion") + " angelegter Beleg liegt vor.",
+               en: "A document created with " + (base || "the create transaction") + " is available." },
+        steps: [
+          { a: { de: "Den Beleg in " + (ch || "der Änderungs-Transaktion") + " öffnen und ein Feld ändern",
+                 en: "Open the document in " + (ch || "the change transaction") + " and change one field" },
+            e: { de: "Die Änderung wird angenommen und gesichert (Nachrichtentyp S).", en: "The change is accepted and saved (message type S)." } },
+          { a: { de: "Den Beleg in " + (di || "der Anzeige-Transaktion") + " aufrufen",
+                 en: "Open the document in " + (di || "the display transaction") },
+            e: { de: "Der geänderte Wert wird angezeigt und die Felder sind nicht editierbar.",
+                 en: "The changed value is shown and the fields are not editable." } }
+        ]
+      };
+    }
+  }
+];
+
+function sapAnglesFor(req) {
+  if (!isSap()) return [];
+  const t = reqText(req);
+  const codes = reqTcodes(req);
+  const have = {};
+  S.drafts.filter(d => d.requirement === req.key && d.sapAngle).forEach(d => { have[d.sapAngle] = true; });
+  return SAP_ANGLES.filter(a => a.when(t, codes)).map(a => ({ a: a, codes: codes, added: !!have[a.key] }));
+}
+
+function addSapCase(req, angle) {
+  const lang = genLangFor(req);
+  const conv = S.conventions || {};
+  const codes = reqTcodes(req);
+  const tc = codes[0] || "";
+  const built = angle.build(lang, tc, codes);
+  const pick = (o) => o[lang] || o.en;
+  const top = matchesFor(req, 1)[0];
+  const tpl = top && top.score >= S.gen.minScore ? top.tc : null;
+  const module = (tpl && tpl.module) || clean(req.components.split(",")[0]) || "";
+
+  const d = newDraft({
+    name: applyNamePattern(S.gen.namePattern || conv.namePattern, {
+      prefix: conv.prefix, module: module, area: (tpl && tpl.area) || "", req: req.key,
+      type: "SAP", title: shortTitle(req.summary) + " – " + pick(built.title)
+    }),
+    requirement: req.key, acRef: "", lang: lang, technique: angle.technique,
+    module: module, area: (tpl && tpl.area) || "", path: (tpl && tpl.path) || "",
+    type: pickType(conv, "positive", lang),
+    priority: mapPriority(req.priority, conv, lang),
+    status: conv.defaultStatus || p(lang).statusNew,
+    description: pick(angle.why),
+    precondition: [pick(built.pre), sp(lang).sys].join(" "),
+    sapAngle: angle.key, manual: true, needsWording: false,
+    steps: built.steps.map(x => ({ action: pick(x.a), expected: pick(x.e) }))
+  });
+  S.drafts.push(d);
+  flagDuplicates();
+  save(); renderAll();
+  toast(pick(angle.label) + " — case added to Review.");
 }
 
 /* ----------------------------------------------------------- stage: match */
@@ -3185,8 +3637,39 @@ function viewGenerate(p) {
     el("span", {}, [document.createTextNode(label), note ? el("span", { class: "small", text: " — " + note }) : null])
   ]);
 
+  const habit = archiveCasesPerReq();
+  const now = currentDepth();
+  const depthCard = el("div", { class: "card" }, [
+    el("div", { class: "row" }, [
+      el("h3", { text: "How many cases a ticket is worth", style: "margin:0" }),
+      el("span", { style: "margin-left:auto" }),
+      habit ? el("span", { class: "chip accent mono", text: "your archive: " + habit.avg + " per ticket" }) : null
+    ].filter(Boolean)),
+    el("p", { class: "card-sub", text: habit
+      ? "Your archive covers a requirement with " + habit.avg + " test cases on average, across " +
+        habit.reqs + " tickets. Pick the depth that lands near that \u2014 more cases is not more coverage, it is more review."
+      : "More cases is not more coverage, it is more review. Import past requirements and this will also say what your archive spends on a ticket." })
+  ]);
+  depthCard.appendChild(el("div", { class: "stack" }, DEPTHS.map(d => {
+    const on = now && now.key === d.key;
+    const n = S.requirements.length ? depthCount(d) : 0;
+    return el("button", {
+      class: "depthrow" + (on ? " on" : ""), type: "button",
+      onclick: () => { applyDepth(d); renderAll(); }
+    }, [
+      el("span", { class: "dk", text: d.label }),
+      el("span", { class: "dh", text: d.hint }),
+      el("span", { class: "dn", text: S.requirements.length
+        ? n + " cases \u00b7 " + (Math.round(n / S.requirements.length * 10) / 10) + " per ticket"
+        : "\u2014" })
+    ]);
+  })));
+  if (!now) depthCard.appendChild(el("p", { class: "small", style: "margin-top:8px",
+    text: "Your own mix of the switches below \u2014 none of the three presets matches it." }));
+  p.appendChild(depthCard);
+
   const what = el("div", { class: "card" }, [
-    el("h3", { text: "What to forge" }),
+    el("h3", { text: "Or choose case by case" }),
     el("div", { class: "stack" }, [
       opt("positive", "Positive case per criterion", "equivalence partitioning, valid class"),
       opt("negative", "Negative case", "only where the criterion mentions validation or errors"),
@@ -3209,6 +3692,18 @@ function viewGenerate(p) {
         ])
       ]),
       el("p", { class: "small", text: "The drafts are the same either way; the target decides which files the Export stage writes. Manual cases already in qTest can be carried over from the Archive stage without a requirement." }),
+      el("label", { class: "field" }, [
+        el("span", { text: "System under test" }),
+        el("select", { id: "genplat", onchange: e => { S.gen.platform = e.target.value; save(); renderAll(); } }, [
+          el("option", { value: "auto", text: "Auto \u2014 from the archive (" + PLATFORM_LABEL[detectPlatform()] + ")", selected: S.gen.platform === "auto" }),
+          el("option", { value: "sapgui", text: "SAP GUI", selected: S.gen.platform === "sapgui" }),
+          el("option", { value: "fiori", text: "SAP Fiori", selected: S.gen.platform === "fiori" }),
+          el("option", { value: "generic", text: "A web application", selected: S.gen.platform === "generic" })
+        ])
+      ]),
+      el("p", { class: "small", text: isSap()
+        ? "Because the system is SAP, each ticket also gets a list of the angles SAP asks for \u2014 authorisation, organisational level, document number, message type, interface, background job, output \u2014 on its card in New Requirements. Those are offered one at a time, not generated in bulk."
+        : "Set this to SAP and each ticket also gets the angles SAP asks for \u2014 authorisation, organisational level, document number, message type, interface, background job, output \u2014 offered one at a time on its card." }),
       el("label", { class: "field" }, [
         el("span", { text: "Language of the generated text" }),
         el("select", { id: "genlang", onchange: e => { S.gen.lang = e.target.value; save(); renderAll(); } }, [
@@ -3264,7 +3759,8 @@ function viewGenerate(p) {
     tw.appendChild(t); pv.appendChild(tw);
     pv.appendChild(el("div", { class: "row end", style: "margin-top:12px" }, [
       el("span", { class: "small", style: "margin-right:auto", text: "Approved drafts are kept; everything still marked draft is replaced." }),
-      el("button", { class: "btn primary", type: "button", onclick: () => { runGeneration(); S.stage = "review"; renderAll(); } }, "Forge " + total + " drafts")
+      el("button", { class: "btn primary", type: "button", onclick: () => { runGeneration(); S.stage = "review"; renderAll(); } },
+        "Generate " + total + " test case" + (total === 1 ? "" : "s"))
     ]));
   }
   p.appendChild(pv);
@@ -4584,22 +5080,74 @@ BIB-2150,Bug,Ausleihe lässt sich nach der Rücknahme noch verlängern,"Nach der
 - Eine Ausleihe im Status Ausgeliehen kann weiterhin verlängert werden
 - Das Verlängern setzt das Rückgabedatum um zwei Wochen nach hinten",High,Bereit zum Test,Ausleihe,regression,,R2026.10,`;
 
-function loadSample() {
+/* A second sample, invented from scratch: a fictional wholesaler's SAP, with
+   the ordinary SD / MM / FI flows and the transaction codes that go with them.
+   It exists so the SAP side of the app can be seen and tested without anyone
+   having to open a real project. */
+const SAMPLE_SAP_ARCHIVE = `Id;Name;Kurzbeschreibung;Vorbedingung;Modul;Type;Priorität;Status;Version;Regressionstest;Stichwort;Anforderung;Testdauer;Testumgebung;Testschritt-Nr.;Testschritt-Beschreibung;Erwartetes Ergebnis
+SAP-101;TF_SD_Kundenauftrag anlegen_SAP_Regression;Anlage eines Standardauftrags für einen Bestandskunden.;Der Kunde 41200 ist im Buchungskreis 1000 angelegt und nicht gesperrt.;SD;Manual;High;Freigegeben;2.1;x;Vertrieb;GC-4101;25 Min;Q-System QC1;1;Am SAP-System im Mandanten der Testumgebung anmelden;Das SAP Easy Access Menü wird angezeigt
+SAP-101;;;;;;;;;;;;;;2;Transaktion VA01 aufrufen;Das Einstiegsbild Kundenauftrag anlegen wird angezeigt
+SAP-101;;;;;;;;;;;;;;3;Auftragsart TA, Verkaufsorganisation 1000, Vertriebsweg 10 und Sparte 00 eingeben;Das Übersichtsbild des Kundenauftrags wird angezeigt
+SAP-101;;;;;;;;;;;;;;4;Auftraggeber 41200 und Material 100-200 mit Menge 10 erfassen und sichern;Die Statusleiste nennt die vergebene Belegnummer (Nachrichtentyp S)
+SAP-102;TF_SD_Auslieferung und Faktura_SAP_Volltest;Kompletter Ablauf vom Auftrag über die Lieferung bis zur Faktura.;Ein offener Kundenauftrag für den Kunden 41200 liegt vor.;SD;Manual;High;Freigegeben;2.0;;Vertrieb;GC-4101;45 Min;Q-System QC1;1;Transaktion VL01N aufrufen und die Auslieferung zum Auftrag anlegen;Die Auslieferung wird mit eigener Belegnummer angelegt
+SAP-102;;;;;;;;;;;;;;2;Die Kommissionierung erfassen und den Warenausgang buchen;Der Warenausgang wird gebucht und der Materialbeleg angezeigt
+SAP-102;;;;;;;;;;;;;;3;Transaktion VF01 aufrufen und die Faktura zur Lieferung anlegen;Die Faktura wird mit Belegnummer angelegt
+SAP-102;;;;;;;;;;;;;;4;Den Belegfluss zum Kundenauftrag aufrufen;Auftrag, Lieferung, Warenausgang und Faktura sind vollständig verkettet
+SAP-103;TF_MM_Bestellung anlegen_SAP_Regression;Anlage einer Normalbestellung gegen einen Lieferanten.;Der Lieferant 70015 ist für die Einkaufsorganisation 1000 angelegt.;MM;Manual;Medium;Freigegeben;1.6;x;Einkauf;GC-4118;20 Min;Q-System QC1;1;Transaktion ME21N aufrufen;Das Bild Bestellung anlegen wird angezeigt
+SAP-103;;;;;;;;;;;;;;2;Bestellart NB, Lieferant 70015, Einkaufsorganisation 1000 und Werk 1000 erfassen;Die Kopfdaten werden übernommen
+SAP-103;;;;;;;;;;;;;;3;Material 100-200 mit Menge 50 und Lieferdatum erfassen und sichern;Die Statusleiste nennt die Bestellnummer (Nachrichtentyp S)
+SAP-104;TF_MM_Wareneingang buchen_SAP_Regression;Wareneingang zu einer offenen Bestellung.;Zur Bestellung aus SAP-103 ist noch kein Wareneingang gebucht.;MM;Manual;High;Freigegeben;1.6;x;Einkauf;GC-4118;20 Min;Q-System QC1;1;Transaktion MIGO aufrufen und Wareneingang zur Bestellung wählen;Die Bestellpositionen werden angezeigt
+SAP-104;;;;;;;;;;;;;;2;Die Position als OK kennzeichnen, Lagerort 0001 setzen und buchen;Der Materialbeleg wird erzeugt und die Nummer in der Statusleiste genannt
+SAP-104;;;;;;;;;;;;;;3;Den Bestand in MMBE prüfen;Der Bestand im Werk 1000 ist um die gebuchte Menge erhöht
+SAP-105;TF_FI_Kreditorenrechnung buchen_SAP_Regression;Rechnungsprüfung gegen Bestellung und Wareneingang.;Bestellung und Wareneingang sind gebucht.;FI;Manual;Medium;Freigegeben;1.3;x;Finanzen;GC-4118;25 Min;Q-System QC1;1;Transaktion MIRO aufrufen und die Bestellnummer als Referenz erfassen;Die Positionen aus Bestellung und Wareneingang werden vorgeschlagen
+SAP-105;;;;;;;;;;;;;;2;Rechnungsbetrag und Buchungsdatum erfassen und simulieren;Die Simulation zeigt eine ausgeglichene Buchung ohne Differenz
+SAP-105;;;;;;;;;;;;;;3;Die Rechnung buchen und den Beleg in FB03 aufrufen;Der Buchhaltungsbeleg wird mit den erfassten Werten angezeigt
+SAP-106;TF_SD_Berechtigung Kundenauftrag_SAP_Regression;Prüfung der Rollenzuordnung für die Auftragsanlage.;Je ein Benutzer mit und ohne Vertriebsrolle steht zur Verfügung.;SD;Manual;High;Freigegeben;1.1;;Berechtigung;GC-4130;15 Min;Q-System QC1;1;Mit dem berechtigten Benutzer VA01 aufrufen;Das Einstiegsbild wird angezeigt
+SAP-106;;;;;;;;;;;;;;2;Mit dem nicht berechtigten Benutzer VA01 aufrufen;Der Zugriff wird abgewiesen und eine Berechtigungsmeldung erscheint
+SAP-106;;;;;;;;;;;;;;3;SU53 aufrufen und die letzte Berechtigungsprüfung auswerten;Das fehlende Berechtigungsobjekt wird ausgewiesen
+SAP-107;TF_MM_Materialstamm anzeigen_SAP_Regression;Anzeige der Sichten des Materialstamms.;Das Material 100-200 ist im Werk 1000 angelegt.;MM;Manual;Low;Freigegeben;1.0;;Stammdaten;GC-4118;10 Min;Q-System QC1;1;Transaktion MM03 aufrufen und Material 100-200 eingeben;Die Sichtenauswahl wird angezeigt
+SAP-107;;;;;;;;;;;;;;2;Die Sichten Grunddaten und Einkauf mit Werk 1000 öffnen;Beide Sichten werden mit den gepflegten Werten angezeigt`;
+
+const SAMPLE_SAP_HISTORY = `Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Fix Version/s
+GC-4101,Story,Auftragsabwicklung im Vertrieb,"Der Standardablauf vom Kundenauftrag bis zur Faktura.","- Ein Standardauftrag kann für einen nicht gesperrten Kunden angelegt werden
+- Zum Auftrag lässt sich eine Auslieferung mit Warenausgang buchen
+- Die Faktura schließt den Belegfluss ab",High,Abgeschlossen,SD,R2026.02
+GC-4118,Story,Beschaffung von Handelsware,"Bestellung, Wareneingang und Rechnungsprüfung.","- Eine Normalbestellung kann gegen einen angelegten Lieferanten erfasst werden
+- Der Wareneingang erhöht den Bestand im bestellten Werk
+- Die Rechnungsprüfung gleicht Bestellung und Wareneingang ab",High,Abgeschlossen,MM,R2026.02
+GC-4130,Story,Rollen und Berechtigungen im Vertrieb,"Wer welche Vertriebstransaktion ausführen darf.","- Nur Benutzer mit der Vertriebsrolle dürfen Kundenaufträge anlegen
+- Eine fehlende Berechtigung ist über SU53 nachvollziehbar",Medium,Abgeschlossen,SD,R2026.02`;
+
+const SAMPLE_SAP_REQ = `Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Labels,Fix Version/s
+GC-4207,Story,Kundenauftrag mit Rahmenvertragsabruf,"Aufträge gegen einen Rahmenvertrag sollen den vereinbarten Preis ziehen und an das Lagersystem gemeldet werden.","- Ein Auftrag in VA01 gegen einen gültigen Rahmenvertrag übernimmt den vereinbarten Preis
+- Ein Abruf über die vereinbarte Menge hinaus wird mit einer Fehlermeldung abgewiesen
+- Nur Benutzer mit der Rolle Vertrieb dürfen einen Rahmenvertragsabruf erfassen
+- Der gebuchte Auftrag wird per IDoc an das Lagersystem übertragen",High,In Arbeit,SD,vertrieb,R2026.08
+GC-4231,Story,Nächtliche Preisaktualisierung mit Kundeninformation,"Die Einkaufspreise werden nachts aktualisiert und geänderte Positionen an die betroffenen Kunden gemeldet.","- Der Hintergrundjob aktualisiert zwischen 1 und 5000 Preiszeilen je Lauf
+- Eine Zeile mit ungültiger Materialnummer wird abgewiesen und im Joblog mit Zeilennummer protokolliert
+- Für jede geänderte Position wird eine Nachricht per E-Mail an den Kunden ausgegeben",Medium,In Arbeit,MM,einkauf,R2026.08`;
+
+function loadSample(which) {
+  const sap = which === "sap";
   S.archiveHeaders = null;
-  const a = ingestArchiveRows(parseDelimited(SAMPLE_ARCHIVE_CSV));
+  const a = ingestArchiveRows(parseDelimited(sap ? SAMPLE_SAP_ARCHIVE : SAMPLE_ARCHIVE_CSV));
   S.archive = a.cases;
   S.archiveHeaders = { list: a.headers, labels: a.labels, qtestLike: true, extra: a.extraHeaders };
-  S.history = ingestRequirementRows(parseDelimited(SAMPLE_HISTORY_CSV));
-  S.requirements = ingestRequirementRows(parseDelimited(SAMPLE_REQ_CSV));
+  S.history = ingestRequirementRows(parseDelimited(sap ? SAMPLE_SAP_HISTORY : SAMPLE_HISTORY_CSV));
+  S.requirements = ingestRequirementRows(parseDelimited(sap ? SAMPLE_SAP_REQ : SAMPLE_REQ_CSV));
   S.drafts = [];
   S.sampleLoaded = true;
   S.gen.namePattern = "";
   S.gen.lang = "auto";
+  S.gen.platform = "auto";
+  TCODES = null;
   buildIdf(); deriveConventions();
   runGeneration();
-  S.stage = "review";
+  S.stage = sap ? "requirements" : "review";
   save(); renderAll();
-  toast("Sample project loaded — a German qTest archive, the three tickets it was written for, three new ones, and the drafts they produce.");
+  toast(sap
+    ? "SAP sample loaded \u2014 an invented wholesaler's SD, MM and FI cases with their transaction codes, and two tickets. Open a ticket to see the SAP angles."
+    : "Sample project loaded \u2014 a German qTest archive, the three tickets it was written for, three new ones, and the drafts they produce.");
 }
 
 /* A collapsed requirement would print as a bare heading, so paper gets all
@@ -4682,7 +5230,8 @@ $("#project-file").addEventListener("change", async e => {
   }
   e.target.value = "";
 });
-$("#btn-sample").addEventListener("click", loadSample);
+$("#btn-sample").addEventListener("click", () => loadSample());
+$("#btn-sample-sap").addEventListener("click", () => loadSample("sap"));
 $("#btn-reset").addEventListener("click", () => {
   pushUndo("clearing everything");
   S.archive = []; S.history = []; S.requirements = []; S.drafts = []; S.conventions = null;

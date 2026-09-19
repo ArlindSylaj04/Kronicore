@@ -110,6 +110,63 @@ that can act on it, filtered to that slice. Review then shows which filter is ac
 removable pill, so a filtered list never looks like the whole list. A draft's requirement
 chip opens the ticket; its `≈ TC-…` chip opens the archived case it resembles.
 
+## How many cases a ticket is worth
+
+Eight cases from one ticket is not thoroughness, it is a review queue. The Generate stage
+leads with three depths and prints what each would produce for the tickets now loaded,
+next to what your own archive spends on a ticket:
+
+| Depth | What it writes |
+|---|---|
+| **Lean** | one end-to-end case per ticket, plus a negative case only where a criterion asks for one |
+| **Balanced** | one case per criterion, the negatives the criteria ask for, and one end-to-end case |
+| **Thorough** | everything above plus boundary values and a permission matrix wherever they apply |
+
+The archive figure is the honest anchor: if your project has historically covered a
+requirement with three cases, a preset that produces five per ticket is not more coverage,
+it is more review. The five switches underneath still work if none of the three fits.
+
+**Removing a ticket removes its test cases.** A ticket and the drafts written for it are
+one thing; leaving the drafts behind is how a project ends up counting work that has no
+reason to exist. Anything you already approved is your decision, so that survives and the
+toast says how many were kept. One undo brings it all back.
+
+## Testing SAP
+
+qTest holds the cases; the thing being tested is usually something else. Set **System under
+test** on the Generate stage — or let it be read off your archive — and for an SAP project
+the app changes what it considers a finished test case.
+
+**Transaction codes are learned from your own archive**, not guessed. A token counts as a
+transaction code when the public SAP reference the app carries knows it, or when it is at
+least four characters and reads like one. Three characters is too little to tell a
+transaction from a tag — `E2E`, `UAT` and `SIT` all look like one otherwise — so anything
+shorter has to be in the reference, which is where `F-02` comes from. Your own ids are
+excluded by shape, so `TC-2134` and `BIB-2101` are never mistaken for transactions. The
+Knowledge Base stage lists what it found, how often, and how many of them the reference
+can name.
+
+**Each ticket gets the angles SAP asks for**, on its own card, offered one at a time rather
+than generated in bulk:
+
+| Angle | Why it is a test |
+|---|---|
+| Authorisation | in SAP the authorisation is part of the function; the same transaction behaves differently per role, and `SU53` names the missing object |
+| Organisational level | what works in one company code or plant is often configured differently in the next |
+| Document number and follow-on | a posting without a document number you can point at is not tested |
+| Message and message type | "an error appears" is not an expected result; type, class and number are |
+| Interface | if the document is meant to reach a neighbouring system, the test ends there — IDoc status 53, not before |
+| Background processing | dialogue and job are two paths through one function, and the job has a log rather than a screen |
+| Output determination | the document is finished when the output reaches the printer, the mail or EDI |
+| Create, change, display | a `…01` transaction always comes with its `…02` and `…03` |
+
+An angle only appears when the ticket's own text touches it, and where the ticket names a
+transaction the generated steps call it by code. Cases added this way are marked as yours:
+regenerating the ticket never replaces them.
+
+`SAP sample` in the header loads an invented wholesaler's SD, MM and FI project so all of
+this can be seen without opening a real one.
+
 ## Test health
 
 
