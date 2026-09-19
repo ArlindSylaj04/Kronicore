@@ -246,6 +246,10 @@ details.raw[open] summary{margin-bottom:8px}
       <p class="sub">Import your existing test-case archive in any order, pull requirements out of Jira, and forge new qTest-ready test cases that keep your team's conventions.</p>
     </div>
     <div class="masthead-actions">
+      <button class="btn sm" id="btn-undo" type="button" hidden></button>
+      <button class="btn sm" id="btn-save" type="button">Save project</button>
+      <button class="btn sm" id="btn-open" type="button">Open project</button>
+      <input type="file" id="project-file" accept=".json" hidden>
       <button class="btn sm" id="btn-theme" type="button">Theme</button>
       <button class="btn sm" id="btn-sample" type="button">Load sample data</button>
       <button class="btn sm" id="btn-reset" type="button">Clear all</button>
@@ -358,6 +362,87 @@ function load() {
     if (d.exp) Object.assign(S.exp, d.exp);
     return true;
   } catch (e) { return false; }
+}
+
+/* ------------------------------------------------- the work, as one file */
+/* localStorage is per browser and per machine. A project file is what lets you
+   work on two releases, hand a configured knowledge base to a colleague, and
+   survive a cleared browser. */
+const PROJECT_KEYS = ["archive","history","requirements","drafts","conventions",
+  "archiveHeaders","moduleTree","importPath","gen","exp","jiraAcField","migrateThreshold"];
+
+function projectJson() {
+  const out = { app: "testfall-schmiede", version: 1, savedAt: new Date().toISOString() };
+  PROJECT_KEYS.forEach(k => { out[k] = S[k]; });
+  return JSON.stringify(out, null, 1);
+}
+function loadProject(text) {
+  const d = JSON.parse(text);
+  if (!d || d.app !== "testfall-schmiede") throw new Error("this is not a Testfall-Schmiede project file");
+  pushUndo("opening a project");
+  PROJECT_KEYS.forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+  S.sampleLoaded = false;
+  buildIdf(); deriveConventions(); save(); renderAll();
+  toast("Project opened — " + S.archive.length + " cases, " + S.requirements.length + " requirements, " + S.drafts.length + " drafts.");
+}
+
+/* ---- one step back, for the actions that cannot be clicked away ---------- */
+const UNDOABLE = ["archive","history","requirements","drafts","moduleTree"];
+let UNDO = null;
+function pushUndo(label) {
+  try {
+    const d = {};
+    UNDOABLE.forEach(k => { d[k] = S[k]; });
+    UNDO = { label: label, data: JSON.stringify(d) };
+  } catch (e) { UNDO = null; }
+}
+function undoLast() {
+  if (!UNDO) return;
+  let d;
+  try { d = JSON.parse(UNDO.data); } catch (e) { toast("That step cannot be undone."); UNDO = null; return; }
+  UNDOABLE.forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+  const label = UNDO.label;
+  UNDO = null;
+  buildIdf(); deriveConventions(); save(); renderAll();
+  toast("Undone: " + label);
+}
+function renderUndo() {
+  const b = $("#btn-undo");
+  if (!b) return;
+  b.hidden = !UNDO;
+  if (UNDO) b.textContent = "Undo " + UNDO.label;
+}
+
+/* ---- re-importing a module must update it, not clone it ------------------ */
+function mergeArchive(cases) {
+  const index = new Map();
+  S.archive.forEach((c, i) => index.set(c.tcid + "|" + c.name, i));
+  let added = 0, updated = 0;
+  cases.forEach(c => {
+    const k = c.tcid + "|" + c.name;
+    if (index.has(k)) { S.archive[index.get(k)] = c; updated++; }
+    else { index.set(k, S.archive.length); S.archive.push(c); added++; }
+  });
+  return { added: added, updated: updated };
+}
+
+/* ---- is this draft just a case we already have? -------------------------- */
+function flagDuplicates() {
+  if (!S.archive.length || !S.drafts.length) return;
+  const arc = S.archive.map(c => ({ c: c, tok: tokenize(archiveText(c)) }));
+  S.drafts.forEach(d => {
+    const dTok = tokenize(d.name + " " + d.description + " " +
+      d.steps.map(x => x.action + " " + x.expected).join(" "));
+    let best = null, score = 0;
+    arc.forEach(a => {
+      if (a.c.tcid === d.templateId && d.origin === "archive") return;  // it *is* that case
+      const sc = cosine(dTok, a.tok);
+      if (sc > score) { score = sc; best = a.c; }
+    });
+    d.similar = (best && score >= 0.6)
+      ? { tcid: best.tcid, name: best.name, score: Math.round(score * 100) }
+      : null;
+  });
 }
 
 /* ------------------------------------------------------- CSV in and out */
@@ -1567,6 +1652,7 @@ function boundarySteps(step, bounds, lang) {
 
 function runGeneration(onlyKey) {
   if (!S.requirements.length) { toast("Import requirements first."); return; }
+  pushUndo("forging drafts");
   buildIdf();
   deriveConventions();
   const targets = onlyKey ? S.requirements.filter(r => r.key === onlyKey) : S.requirements;
@@ -1576,6 +1662,7 @@ function runGeneration(onlyKey) {
   const fresh = [];
   targets.forEach(r => generateFor(r).forEach(d => fresh.push(d)));
   S.drafts = kept.concat(fresh);
+  flagDuplicates();
   save();
   toast(fresh.length + " draft test case" + (fresh.length === 1 ? "" : "s") + " forged.");
 }
@@ -1872,7 +1959,7 @@ function fallbackCopy(text, done) {
 }
 function trySave(filename, text) {
   try {
-    const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([text], { type: /\.json$/.test(filename) ? "application/json" : "text/csv;charset=utf-8" });
     const a = el("a", { href: URL.createObjectURL(blob), download: filename });
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -1941,7 +2028,7 @@ function renderKpis() {
 }
 
 function renderAll() {
-  renderRail(); renderKpis();
+  renderRail(); renderKpis(); renderUndo();
   const p = $("#panel");
   p.textContent = "";
   ({ archive: viewArchive, requirements: viewRequirements, match: viewMatch, generate: viewGenerate, review: viewReview, export: viewExport }[S.stage] || viewArchive)(p);
@@ -1963,7 +2050,7 @@ function viewArchive(p) {
   const file = el("input", { type: "file", id: "arc-file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt", multiple: true });
   file.addEventListener("change", async e => {
     const files = Array.from(e.target.files || []);
-    let added = 0;
+    let added = 0, updated = 0;
     for (const f of files) {
       let tables;
       try { tables = await readTables(f); }
@@ -1974,14 +2061,14 @@ function viewArchive(p) {
         const { cases, headers, labels, runExport, extraHeaders } =
           ingestArchiveRows(t.rows, moduleFromSheet(t.sheet));
         cases.forEach(c => { c.area = area; c.path = path; });
-        S.archive = S.archive.concat(cases);
-        added += cases.length;
+        const m = mergeArchive(cases);
+        added += m.added; updated += m.updated;
         if (!S.archiveHeaders) S.archiveHeaders = { list: headers, labels: labels, qtestLike: headers.some(h => /test ?step|testschritt/i.test(h)), extra: [] };
         S.archiveHeaders.extra = uniq((S.archiveHeaders.extra || []).concat(extraHeaders)).slice(0, 30);
         if (runExport) S.archiveHeaders.runExport = true;
       }
     }
-    afterArchiveChange(added, files.length);
+    afterArchiveChange(added, updated, files.length);
     e.target.value = "";
   });
   const known = uniq((S.moduleTree || []).concat((S.conventions && S.conventions.paths) || []));
@@ -2034,11 +2121,11 @@ function viewArchive(p) {
             const { cases, headers, labels, runExport, extraHeaders } = ingestArchiveRows(parseDelimited(t));
             const pastedPath = clean(S.importPath);
             cases.forEach(c => { c.area = pathLeaf(pastedPath); c.path = pastedPath; });
-            S.archive = S.archive.concat(cases);
+            const m = mergeArchive(cases);
             if (!S.archiveHeaders) S.archiveHeaders = { list: headers, labels: labels, qtestLike: headers.some(h => /test ?step|testschritt/i.test(h)), extra: [] };
             S.archiveHeaders.extra = uniq((S.archiveHeaders.extra || []).concat(extraHeaders)).slice(0, 30);
             if (runExport) S.archiveHeaders.runExport = true;
-            afterArchiveChange(cases.length, 1);
+            afterArchiveChange(m.added, m.updated, 1);
           }
         }, "Add to archive")
       ])
@@ -2100,7 +2187,7 @@ function viewArchive(p) {
     histCard.appendChild(el("div", { class: "row", style: "margin-top:10px" }, [
       el("span", { class: "chip accent mono", text: S.history.length + " requirements" }),
       el("span", { class: "chip mono " + (linked.length ? "good" : "warn"), text: linked.length + " linked to cases" }),
-      el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.history = []; buildIdf(); save(); renderAll(); } }, "Clear")
+      el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("clearing past requirements"); S.history = []; buildIdf(); save(); renderAll(); } }, "Clear")
     ]));
     if (!linked.length) {
       histCard.appendChild(el("div", { class: "note warn", style: "margin-top:10px", text: "None of them could be linked. A case is linked when its requirement column names the issue key — check that your qTest export includes Anforderung or Test Case Jira Requirement ID." }));
@@ -2185,6 +2272,7 @@ function viewArchive(p) {
         }, "Rename"),
         el("button", {
           class: "btn ghost sm", type: "button", onclick: () => {
+            pushUndo("removing a branch");
             S.archive = S.archive.filter(c => pathSegments(c).indexOf(sel) < 0);
             S.filters.archiveArea = "";
             buildIdf(); deriveConventions(); save(); renderAll();
@@ -2206,7 +2294,7 @@ function viewArchive(p) {
     }, [el("option", { value: "", text: "All types" })].concat(types.map(t => el("option", { value: t, text: t, selected: S.filters.archiveType === t })))),
     el("span", { class: "small", id: "arc-count" }),
     el("button", { class: "btn sm", type: "button", onclick: () => convertArchiveCases(shownArchive().slice(0, 200)) }, "Carry shown over to Review"),
-    el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.archive = []; S.conventions = null; S.archiveHeaders = null; save(); renderAll(); } }, "Remove every test case")
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("removing every test case"); S.archive = []; S.conventions = null; S.archiveHeaders = null; save(); renderAll(); } }, "Remove every test case")
   ]);
   p.appendChild(bar);
   const wrap = el("div", { class: "tablewrap", id: "arc-table" });
@@ -2247,6 +2335,7 @@ function migrationCard() {
     ]),
     el("button", {
       class: "btn sm", type: "button", onclick: () => {
+        pushUndo("placing cases in the tree");
         let n = 0;
         unplaced.forEach(c => {
           const top = suggestNodes(c, 1)[0];
@@ -2298,9 +2387,12 @@ function migrationCard() {
   return card;
 }
 
-function afterArchiveChange(added, files) {
+function afterArchiveChange(added, updated, files) {
   buildIdf(); deriveConventions(); save(); renderAll();
-  toast(added + " test case" + (added === 1 ? "" : "s") + " imported from " + files + " file" + (files === 1 ? "" : "s") + ".");
+  const parts = [];
+  if (added) parts.push(added + " new");
+  if (updated) parts.push(updated + " updated in place");
+  toast((parts.join(", ") || "nothing new") + " from " + files + " file" + (files === 1 ? "" : "s") + ".");
 }
 
 function shownArchive() {
@@ -2462,7 +2554,7 @@ function viewRequirements(p) {
 
   p.appendChild(el("div", { class: "row" }, [
     el("span", { class: "small", text: S.requirements.length + " requirements · " + S.requirements.reduce((n, r) => n + r.ac.length, 0) + " acceptance criteria" }),
-    el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.requirements = []; buildIdf(); save(); renderAll(); } }, "Remove all requirements")
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("removing the requirements"); S.requirements = []; buildIdf(); save(); renderAll(); } }, "Remove all requirements")
   ]));
 
   S.requirements.forEach((r, ri) => {
@@ -2664,7 +2756,7 @@ function viewGenerate(p) {
 /* ---------------------------------------------------------- stage: review */
 function viewReview(p) {
   p.appendChild(head("Review and edit",
-    "Nothing here is final. Fix the wording, drop what you do not need, approve what goes to qTest. Drafts flagged “needs wording” have a generic expected result that the ticket did not spell out."));
+    "Nothing here is final. Fix the wording, drop what you do not need, approve what goes to qTest. “Needs wording” means the ticket never said what the expected result is; a red “≈ TC-…” chip means the archive already holds something very close, which is usually a case to extend rather than a case to add."));
 
   if (!S.drafts.length) {
     p.appendChild(el("div", { class: "empty" }, [
@@ -2681,8 +2773,9 @@ function viewReview(p) {
       type: "text", id: "dr-search", placeholder: "Filter drafts…", value: S.filters.drafts,
       oninput: e => { S.filters.drafts = e.target.value; renderDraftList(); }
     }),
-    el("button", { class: "btn sm", type: "button", onclick: () => { shownDrafts().forEach(d => { if (d.review !== "rejected") d.review = "approved"; }); save(); renderAll(); } }, "Approve all shown"),
-    el("button", { class: "btn ghost sm", type: "button", onclick: () => { S.drafts = S.drafts.filter(d => d.review === "approved"); save(); renderAll(); } }, "Discard unapproved"),
+    el("button", { class: "btn sm", type: "button", onclick: () => { pushUndo("approving all shown"); shownDrafts().forEach(d => { if (d.review !== "rejected") d.review = "approved"; }); save(); renderAll(); } }, "Approve all shown"),
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("discarding unapproved drafts"); S.drafts = S.drafts.filter(d => d.review === "approved"); save(); renderAll(); } }, "Discard unapproved"),
+    el("button", { class: "btn ghost sm", type: "button", onclick: () => { flagDuplicates(); save(); renderAll(); toast("Checked every draft against the archive."); } }, "Check against the archive"),
     el("span", { class: "small", id: "dr-count" })
   ]));
   p.appendChild(el("div", { class: "stack", id: "draft-list" }));
@@ -2697,7 +2790,10 @@ function shownDrafts() {
 function renderDraftList() {
   const box = $("#draft-list"); if (!box) return;
   const list = shownDrafts();
-  const cnt = $("#dr-count"); if (cnt) cnt.textContent = list.length + " of " + S.drafts.length + " shown";
+  const dup = S.drafts.filter(d => d.similar).length;
+  const cnt = $("#dr-count");
+  if (cnt) cnt.textContent = list.length + " of " + S.drafts.length + " shown" +
+    (dup ? " · " + dup + " already close to an archived case" : "");
   box.textContent = "";
   const conv = S.conventions || {};
   list.forEach(d => box.appendChild(draftCard(d, conv)));
@@ -2715,6 +2811,10 @@ function draftCard(d, conv) {
     el("span", { class: "grip", text: d.origin === "archive" ? "archive · " + d.templateId : d.requirement + (d.acRef ? " · " + d.acRef : "") }),
     title,
     d.needsWording ? el("span", { class: "chip warn", text: "needs wording" }) : null,
+    d.similar ? el("span", {
+      class: "chip crit mono", title: "Closest archived case: " + d.similar.name,
+      text: "≈ " + d.similar.tcid + " · " + d.similar.score + "%"
+    }) : null,
     el("span", { class: "chip accent", text: techName(d.technique, d.lang || "en") }),
     el("button", {
       class: "btn sm " + (d.review === "approved" ? "primary" : ""), type: "button",
@@ -3014,8 +3114,25 @@ function loadSample() {
 }
 
 /* ---------------------------------------------------------------- boot */
+$("#btn-undo").addEventListener("click", undoLast);
+$("#btn-save").addEventListener("click", () => {
+  const name = "testfall-schmiede-" + new Date().toISOString().slice(0, 10) + ".json";
+  const text = projectJson();
+  trySave(name, text);
+  copyText(text);
+});
+$("#btn-open").addEventListener("click", () => $("#project-file").click());
+$("#project-file").addEventListener("change", async e => {
+  const f = (e.target.files || [])[0];
+  if (f) {
+    try { loadProject(await f.text()); }
+    catch (err) { toast("Could not open that file: " + err.message); }
+  }
+  e.target.value = "";
+});
 $("#btn-sample").addEventListener("click", loadSample);
 $("#btn-reset").addEventListener("click", () => {
+  pushUndo("clearing everything");
   S.archive = []; S.history = []; S.requirements = []; S.drafts = []; S.conventions = null;
   S.archiveHeaders = null; S.sampleLoaded = false; S.gen.namePattern = "";
   S.stage = "archive";

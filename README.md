@@ -23,6 +23,26 @@ anywhere; the only persistence is `localStorage` in your own browser.
 
 ---
 
+## Working with it
+
+**Save project / Open project** writes the whole workspace — knowledge base, past
+requirements, drafts, module tree, settings — to one `.json` file. `localStorage` is per
+browser and per machine; the project file is what lets you work on two releases, hand a
+configured knowledge base to a colleague, and survive a cleared browser.
+
+**Re-importing a module updates it** rather than cloning it. Cases are matched on id plus
+name, and the import reports how many were new and how many were replaced in place.
+
+**A draft that repeats an archived case is flagged** with a red `≈ TC-204 · 84%` chip.
+Genuinely new drafts score well under the threshold — in testing they sat between 6% and
+27%, while an identical case scores around 100% — so the chip means something when it
+appears. A case carried over from the archive is not flagged against itself.
+
+**Bulk actions can be taken back.** Approving everything shown, discarding unapproved
+drafts, placing cases in the tree, removing a branch, clearing the archive, forging a new
+set of drafts — each takes a snapshot first, and an *Undo* button appears in the header.
+One step, which is what these actions need.
+
 ## The problem it solves
 
 Every release you get a set of Jira stories and you need test cases in qTest for them.
