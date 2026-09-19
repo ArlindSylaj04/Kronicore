@@ -91,6 +91,9 @@ button,input,select,textarea{font:inherit; color:inherit}
 }
 .kpi{background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:2px;
   box-shadow:0 0 0 1px var(--line-soft)}
+button.kpi{text-align:left; border:0; font:inherit; color:inherit; cursor:pointer; width:100%}
+button.kpi:hover{background:var(--surface-3)}
+button.kpi:hover .v{text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px}
 .kpi .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
 .kpi .v{font-family:var(--mono); font-size:26px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums}
 .kpi .n{font-size:12px; color:var(--muted)}
@@ -244,6 +247,11 @@ td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:ri
 }
 .split{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
 .filterbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.pills{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+.pill{display:inline-flex; align-items:center; gap:6px; padding:3px 6px 3px 10px; border-radius:20px;
+  font-size:12px; background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-line)}
+.pill button{background:none; border:0; color:inherit; cursor:pointer; font-size:14px; line-height:1; padding:0 2px}
+.pill button:hover{opacity:.6}
 .filterbar input[type=text]{flex:1 1 190px; max-width:340px}
 .filterbar select{width:auto; min-width:120px}
 .small{font-size:12px; color:var(--muted)}
@@ -257,22 +265,32 @@ td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:ri
 .matrix th.rowhead{text-align:left; text-transform:none; letter-spacing:0; font-family:var(--sans);
   font-size:13px; color:var(--text); font-weight:500; max-width:260px; overflow:hidden; text-overflow:ellipsis}
 .matrix td{
-  text-align:center; padding:7px 6px; border:0; border-radius:4px;
-  font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:12.5px; cursor:default;
+  text-align:center; padding:0; border:0; border-radius:4px;
+  font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:12.5px;
 }
+.matrix td>span,.matrix td>button{display:block; width:100%; padding:7px 6px; border-radius:4px}
+.matrix td>button{background:none; border:0; color:inherit; font:inherit; cursor:pointer}
+.matrix td>button:hover{box-shadow:inset 0 0 0 2px var(--text)}
 .matrix td.z{color:var(--faint)}
 .matrix td.tot{background:var(--surface-2); color:var(--text); font-weight:600}
 .matrix tbody tr:hover td{outline:1px solid var(--accent-line)}
 
 /* single-series bars: one hue, direct labels, no legend needed */
 .bars{display:flex; flex-direction:column; gap:7px}
-.barrow{display:grid; grid-template-columns:minmax(120px,200px) 1fr auto; gap:10px; align-items:center; font-size:12.5px}
+.barrow{display:grid; grid-template-columns:minmax(120px,200px) 1fr auto; gap:10px; align-items:center;
+  font-size:12.5px; width:100%; text-align:left; background:none; border:0; color:inherit; font-family:inherit;
+  padding:2px 4px; border-radius:5px}
+button.barrow{cursor:pointer}
+button.barrow:hover{background:var(--surface-3)}
+button.barrow:hover .bartrack>i{filter:brightness(1.12)}
 .bartrack{background:var(--surface-2); border-radius:3px; height:10px; overflow:hidden}
 .bartrack>i{display:block; height:100%; background:var(--accent); border-radius:0 3px 3px 0}
 .barval{font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--muted); min-width:34px; text-align:right}
 
 .gaprow{display:flex; gap:9px; align-items:flex-start; padding:8px 10px; border-radius:6px;
-  background:var(--crit-soft); font-size:13px}
+  background:var(--crit-soft); font-size:13px; width:100%; text-align:left; border:0;
+  color:inherit; font-family:inherit; cursor:pointer}
+.gaprow:hover{box-shadow:inset 0 0 0 1px var(--crit)}
 .gaprow .mono{flex:none; color:var(--crit); font-weight:600}
 
 @media print{
@@ -335,7 +353,8 @@ const S = {
   conventions: null,
   archiveHeaders: null,
   sampleLoaded: false,
-  filters: { archive:"", archiveType:"", archiveArea:"", drafts:"" },
+  filters: { archive:"", archiveType:"", archiveArea:"", drafts:"",
+             draftReq:"", draftTech:"", draftModule:"", draftFlag:"" },
   importPath: "",                   // node of the module tree the next import belongs to
   migrateThreshold: 40,             // percent from which a suggestion is applied in bulk
   moduleTree: [],                   // full paths, pasted once from qTest
@@ -2049,7 +2068,7 @@ function renderRail() {
     const n = s.count();
     rail.appendChild(el("button", {
       class: "stage", type: "button", "aria-current": S.stage === s.id ? "true" : "false",
-      onclick: () => { S.stage = s.id; renderAll(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+      onclick: () => goto(s.id)
     }, [
       el("span", { class: "num", text: String(i + 1) }),
       el("span", { class: "lbl", text: s.label }),
@@ -2072,23 +2091,33 @@ function renderKpis() {
   const needs = S.drafts.filter(d => d.needsWording && d.review === "draft").length;
   const steps = S.archive.reduce((n, c) => n + c.steps.length, 0);
 
-  const tile = (k, v, n, cls, meter) => {
-    const t = el("div", { class: "kpi " + (cls || "") }, [
-      el("span", { class: "k", text: k }),
-      el("span", { class: "v", text: v }),
-      n ? el("span", { class: "n", text: n }) : null
-    ]);
-    if (meter !== undefined) t.appendChild(el("div", { class: "meter" }, el("i", { style: "width:" + Math.max(2, meter) + "%" })));
-    return t;
-  };
   const linkedCount = S.history.filter(h => linkedCases(h).length).length;
-  box.appendChild(tile("Knowledge base", String(S.archive.length),
-    S.history.length ? S.history.length + " past requirements, " + linkedCount + " linked" : steps + " steps indexed"));
-  box.appendChild(tile("This release", String(S.requirements.length), acTotal + " acceptance criteria"));
-  box.appendChild(tile("AC coverage", cov + "%", acCovered.size + " of " + acTotal + " covered",
-    cov >= 90 ? "is-good" : cov >= 50 ? "is-warn" : (acTotal ? "is-crit" : ""), cov));
-  box.appendChild(tile("Drafts", String(S.drafts.length), approved + " approved"));
-  box.appendChild(tile("Needs wording", String(needs), needs ? "expected result is generic" : "all drafts have a result", needs ? "is-warn" : "is-good"));
+  box.appendChild(kpiTile("Knowledge base", String(S.archive.length),
+    S.history.length ? S.history.length + " past requirements, " + linkedCount + " linked" : steps + " steps indexed",
+    "", undefined, () => goto("archive")));
+  box.appendChild(kpiTile("This release", String(S.requirements.length), acTotal + " acceptance criteria",
+    "", undefined, () => goto("requirements")));
+  box.appendChild(kpiTile("AC coverage", cov + "%", acCovered.size + " of " + acTotal + " covered",
+    cov >= 90 ? "is-good" : cov >= 50 ? "is-warn" : (acTotal ? "is-crit" : ""), cov, () => goto("coverage")));
+  box.appendChild(kpiTile("Drafts", String(S.drafts.length), approved + " approved",
+    "", undefined, () => goto("review")));
+  box.appendChild(kpiTile("Needs wording", String(needs),
+    needs ? "expected result is generic" : "all drafts have a result",
+    needs ? "is-warn" : "is-good", undefined, needs ? () => goto("review", { draftFlag: "needsWording" }) : null));
+}
+
+/* A tile with somewhere to go is a button; one without stays a plain figure. */
+function kpiTile(k, v, n, cls, meter, go) {
+  const kids = [
+    el("span", { class: "k", text: k }),
+    el("span", { class: "v", text: v }),
+    n ? el("span", { class: "n", text: n }) : null
+  ];
+  const t = go
+    ? el("button", { class: "kpi " + (cls || ""), type: "button", title: "Open " + k.toLowerCase(), onclick: go }, kids)
+    : el("div", { class: "kpi " + (cls || "") }, kids);
+  if (meter !== undefined) t.appendChild(el("div", { class: "meter" }, el("i", { style: "width:" + Math.max(2, meter) + "%" })));
+  return t;
 }
 
 function renderAll() {
@@ -2097,6 +2126,7 @@ function renderAll() {
   p.textContent = "";
   ({ archive: viewArchive, requirements: viewRequirements, match: viewMatch, generate: viewGenerate,
      review: viewReview, coverage: viewCoverage, export: viewExport }[S.stage] || viewArchive)(p);
+  runPendingScroll();
 }
 
 /* --------------------------------------------------------- stage: archive */
@@ -2623,7 +2653,7 @@ function viewRequirements(p) {
   ]));
 
   S.requirements.forEach((r, ri) => {
-    const card = el("div", { class: "reqcard" });
+    const card = el("div", { class: "reqcard", id: "req-" + r.key });
     card.appendChild(el("header", {}, [
       el("span", { class: "key", text: r.key }),
       el("span", { class: "sum", text: r.summary }),
@@ -2833,6 +2863,26 @@ function viewReview(p) {
     return;
   }
 
+  const FLAG_LABEL = {
+    needsWording: "needs wording", duplicate: "close to an archived case",
+    approved: "approved", open: "not yet approved"
+  };
+  if (draftFilterOn()) {
+    const pills = el("div", { class: "pills" }, [el("span", { class: "small", text: "Showing only:" })]);
+    const pill = (label, key) => pills.appendChild(el("span", { class: "pill" }, [
+      document.createTextNode(label),
+      el("button", { type: "button", title: "Remove this filter", onclick: () => { S.filters[key] = ""; renderAll(); } }, "×")
+    ]));
+    if (S.filters.draftReq) pill(S.filters.draftReq, "draftReq");
+    if (S.filters.draftTech) pill(techName(S.filters.draftTech, genLangFor(null)), "draftTech");
+    if (S.filters.draftModule) pill(S.filters.draftModule, "draftModule");
+    if (S.filters.draftFlag) pill(FLAG_LABEL[S.filters.draftFlag] || S.filters.draftFlag, "draftFlag");
+    pills.appendChild(el("button", { class: "btn ghost sm", type: "button",
+      onclick: () => { clearDraftFilters(); renderAll(); } }, "Show everything"));
+    p.appendChild(pills);
+  }
+
+  const dupCount = S.drafts.filter(d => d.similar).length;
   p.appendChild(el("div", { class: "filterbar" }, [
     el("input", {
       type: "text", id: "dr-search", placeholder: "Filter drafts…", value: S.filters.drafts,
@@ -2841,6 +2891,9 @@ function viewReview(p) {
     el("button", { class: "btn sm", type: "button", onclick: () => { pushUndo("approving all shown"); shownDrafts().forEach(d => { if (d.review !== "rejected") d.review = "approved"; }); save(); renderAll(); } }, "Approve all shown"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("discarding unapproved drafts"); S.drafts = S.drafts.filter(d => d.review === "approved"); save(); renderAll(); } }, "Discard unapproved"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { flagDuplicates(); save(); renderAll(); toast("Checked every draft against the archive."); } }, "Check against the archive"),
+    dupCount ? el("button", { class: "btn sm", type: "button",
+      onclick: () => goto("review", { draftFlag: "duplicate" }) },
+      dupCount + " close to an archived case") : null,
     el("span", { class: "small", id: "dr-count" })
   ]));
   p.appendChild(el("div", { class: "stack", id: "draft-list" }));
@@ -2848,17 +2901,48 @@ function viewReview(p) {
 }
 
 function shownDrafts() {
-  const q = S.filters.drafts.toLowerCase();
-  return S.drafts.filter(d => !q || (d.name + " " + d.requirement + " " + d.technique).toLowerCase().indexOf(q) >= 0);
+  const f = S.filters, q = f.drafts.toLowerCase();
+  return S.drafts.filter(d => {
+    if (f.draftReq && d.requirement !== f.draftReq) return false;
+    if (f.draftTech && d.technique !== f.draftTech) return false;
+    if (f.draftModule && (d.module || "(no module)") !== f.draftModule) return false;
+    if (f.draftFlag === "needsWording" && !(d.needsWording && d.review === "draft")) return false;
+    if (f.draftFlag === "duplicate" && !d.similar) return false;
+    if (f.draftFlag === "approved" && d.review !== "approved") return false;
+    if (f.draftFlag === "open" && d.review !== "draft") return false;
+    if (q && (d.name + " " + d.requirement + " " + d.technique).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+const draftFilterOn = () =>
+  !!(S.filters.draftReq || S.filters.draftTech || S.filters.draftModule || S.filters.draftFlag);
+function clearDraftFilters() {
+  S.filters.draftReq = S.filters.draftTech = S.filters.draftModule = S.filters.draftFlag = "";
+}
+
+/* A number is a way into what it counted: every figure on a tile, every cell of
+   the matrix and every bar hands its own slice to the stage that can act on it. */
+let PENDING_SCROLL = "";
+function goto(stage, filters, scrollTo) {
+  clearDraftFilters();
+  if (filters) Object.keys(filters).forEach(k => { S.filters[k] = filters[k]; });
+  S.stage = stage;
+  PENDING_SCROLL = scrollTo || "";
+  renderAll();
+  if (!scrollTo) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function runPendingScroll() {
+  if (!PENDING_SCROLL) return;
+  const target = document.getElementById(PENDING_SCROLL);
+  PENDING_SCROLL = "";
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function renderDraftList() {
   const box = $("#draft-list"); if (!box) return;
   const list = shownDrafts();
-  const dup = S.drafts.filter(d => d.similar).length;
   const cnt = $("#dr-count");
-  if (cnt) cnt.textContent = list.length + " of " + S.drafts.length + " shown" +
-    (dup ? " · " + dup + " already close to an archived case" : "");
+  if (cnt) cnt.textContent = list.length + " of " + S.drafts.length + " shown";
   box.textContent = "";
   const conv = S.conventions || {};
   list.forEach(d => box.appendChild(draftCard(d, conv)));
@@ -2873,13 +2957,22 @@ function draftCard(d, conv) {
   title.addEventListener("input", e => { d.name = e.target.value; save(); });
 
   card.appendChild(el("header", {}, [
-    el("span", { class: "grip", text: d.origin === "archive" ? "archive · " + d.templateId : d.requirement + (d.acRef ? " · " + d.acRef : "") }),
+    (d.origin === "archive" || !d.requirement)
+      ? el("span", { class: "grip", text: d.origin === "archive" ? "archive · " + d.templateId : "—" })
+      : el("button", { class: "chip mono", type: "button", title: "Open " + d.requirement,
+          onclick: () => goto("requirements", null, "req-" + d.requirement) },
+          d.requirement + (d.acRef ? " · " + d.acRef : "")),
     title,
     d.needsWording ? el("span", { class: "chip warn", text: "needs wording" }) : null,
-    d.similar ? el("span", {
-      class: "chip crit mono", title: "Closest archived case: " + d.similar.name,
-      text: "≈ " + d.similar.tcid + " · " + d.similar.score + "%"
-    }) : null,
+    d.similar ? el("button", {
+      class: "chip crit mono", type: "button", style: "cursor:pointer",
+      title: "Closest archived case: " + d.similar.name + " — open it",
+      onclick: () => {
+        const c = S.archive.filter(x => x.tcid === d.similar.tcid)[0];
+        goto("archive");
+        if (c) showArchiveCase(c);
+      }
+    }, "≈ " + d.similar.tcid + " · " + d.similar.score + "%") : null,
     el("span", { class: "chip accent", text: techName(d.technique, d.lang || "en") }),
     el("button", {
       class: "btn sm " + (d.review === "approved" ? "primary" : ""), type: "button",
@@ -3057,16 +3150,15 @@ function viewCoverage(p) {
 
   /* headline tiles — the four numbers a release meeting asks for */
   const tiles = el("div", { class: "kpis" });
-  const tile = (k, v, n, cls) => tiles.appendChild(el("div", { class: "kpi " + (cls || "") }, [
-    el("span", { class: "k", text: k }),
-    el("span", { class: "v", text: v }),
-    n ? el("span", { class: "n", text: n }) : null
-  ]));
-  tile("Fully covered", String(full), "of " + reqs.length + " requirements", full === reqs.length ? "is-good" : "");
-  tile("Partly covered", String(part), part ? "criteria still open" : "none", part ? "is-warn" : "");
-  tile("No coverage", String(none), none ? "nothing written yet" : "none", none ? "is-crit" : "is-good");
-  tile("Run time", eff ? humanMinutes(eff.total) : "—",
-    eff ? liveDrafts().length + " cases × ø " + eff.avg + " min" : "no duration field in the archive");
+  const jump = id => () => { const t = document.getElementById(id); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  tiles.appendChild(kpiTile("Fully covered", String(full), "of " + reqs.length + " requirements",
+    full === reqs.length ? "is-good" : "", undefined, jump("cov-byreq")));
+  tiles.appendChild(kpiTile("Partly covered", String(part), part ? "criteria still open" : "none",
+    part ? "is-warn" : "", undefined, part ? jump("cov-byreq") : null));
+  tiles.appendChild(kpiTile("No coverage", String(none), none ? "nothing written yet" : "none",
+    none ? "is-crit" : "is-good", undefined, none ? jump("cov-gaps") : null));
+  tiles.appendChild(kpiTile("Run time", eff ? humanMinutes(eff.total) : "—",
+    eff ? liveDrafts().length + " cases × ø " + eff.avg + " min" : "no duration field in the archive"));
   p.appendChild(tiles);
 
   /* the matrix: module against technique, the hue carrying the count */
@@ -3100,12 +3192,13 @@ function viewCoverage(p) {
       TECH_ORDER.forEach(k => {
         const n = m.row[k] || 0;
         const step = n === 0 ? 0 : Math.max(1, Math.ceil(n / peak * 5));
+        const label = m.name + " · " + techName(k, genLangFor(null)) + ": " + n + (n === 1 ? " case" : " cases");
         tr.appendChild(el("td", {
           class: n ? "" : "z",
-          style: "background:var(--heat-" + step + ");color:var(--heat-" + step + "-ink)",
-          title: m.name + " · " + techName(k, genLangFor(null)) + ": " + n + (n === 1 ? " case" : " cases"),
-          text: n ? String(n) : "–"
-        }));
+          style: "background:var(--heat-" + step + ");color:var(--heat-" + step + "-ink)"
+        }, n
+          ? el("button", { type: "button", title: label + " — open them", onclick: () => goto("review", { draftModule: m.name, draftTech: k }) }, String(n))
+          : el("span", { title: label, text: "–" })));
       });
       tr.appendChild(el("td", { class: "tot", text: String(m.total) }));
       tb.appendChild(tr);
@@ -3122,11 +3215,15 @@ function viewCoverage(p) {
     el("p", { class: "card-sub", text: "A release that is only positive cases is a release that only proves the happy path." }),
     el("div", { class: "bars" }, TECH_ORDER.map(k => {
       const n = mix[k] || 0;
-      return el("div", { class: "barrow" }, [
+      const kids = [
         el("span", { text: techShort(k), title: techName(k, genLangFor(null)) }),
         el("span", { class: "bartrack" }, el("i", { style: "width:" + Math.round(n / mixMax * 100) + "%" })),
         el("span", { class: "barval", text: String(n) })
-      ]);
+      ];
+      return n
+        ? el("button", { class: "barrow", type: "button", title: "Open the " + techName(k, genLangFor(null)) + " drafts",
+                         onclick: () => goto("review", { draftTech: k }) }, kids)
+        : el("div", { class: "barrow" }, kids);
     }))
   ]);
 
@@ -3134,12 +3231,15 @@ function viewCoverage(p) {
   p.appendChild(matrixCard);
 
   /* the actionable half: what has nothing */
-  const gapCard = el("div", { class: "card" }, [el("h3", { text: "Gaps" })]);
+  const gapCard = el("div", { class: "card", id: "cov-gaps" }, [el("h3", { text: "Gaps" })]);
   if (!gaps.length) {
     gapCard.appendChild(el("div", { class: "note", text: "Every acceptance criterion in this release has at least one test case." }));
   } else {
     gapCard.appendChild(el("p", { class: "card-sub", text: gaps.length + " acceptance criteria have no test case. Each one is a hole a release goes live with." }));
-    gapCard.appendChild(el("div", { class: "stack" }, gaps.slice(0, 40).map(g => el("div", { class: "gaprow" }, [
+    gapCard.appendChild(el("div", { class: "stack" }, gaps.slice(0, 40).map(g => el("button", {
+      class: "gaprow", type: "button", title: "Open " + g.req.key,
+      onclick: () => goto("requirements", null, "req-" + g.req.key)
+    }, [
       el("span", { class: "mono", text: g.req.key + " " + g.label }),
       el("span", { text: g.text })
     ]))));
@@ -3156,7 +3256,7 @@ function viewCoverage(p) {
   reqs.forEach(x => {
     const mine = liveDrafts().filter(d => d.requirement === x.req.key);
     const techs = uniq(mine.map(d => d.technique));
-    tb2.appendChild(el("tr", {}, [
+    tb2.appendChild(el("tr", { style: "cursor:pointer", title: "Open the drafts for " + x.req.key, onclick: () => goto("review", { draftReq: x.req.key }) }, [
       el("td", {}, [el("span", { class: "mono small", text: x.req.key }), document.createTextNode(" " + x.req.summary)]),
       el("td", { class: "num", text: String(x.total) }),
       el("td", { class: "num" }, el("span", {
@@ -3168,7 +3268,7 @@ function viewCoverage(p) {
     ]));
   });
   t2.appendChild(tb2); tw2.appendChild(t2);
-  p.appendChild(el("div", { class: "card" }, [
+  p.appendChild(el("div", { class: "card", id: "cov-byreq" }, [
     el("div", { class: "row" }, [
       el("h3", { text: "By requirement", style: "margin:0" }),
       el("span", { style: "margin-left:auto" }),

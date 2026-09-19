@@ -43,6 +43,12 @@ drafts, placing cases in the tree, removing a branch, clearing the archive, forg
 set of drafts — each takes a snapshot first, and an *Undo* button appears in the header.
 One step, which is what these actions need.
 
+**Every figure is a way into what it counted.** The tiles, the matrix cells, the technique
+bars, the gap rows and the requirement rows are all buttons: clicking one opens the stage
+that can act on it, filtered to that slice. Review then shows which filter is active as a
+removable pill, so a filtered list never looks like the whole list. A draft's requirement
+chip opens the ticket; its `≈ TC-…` chip opens the archived case it resembles.
+
 ## The problem it solves
 
 Every release you get a set of Jira stories and you need test cases in qTest for them.
