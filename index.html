@@ -11,12 +11,24 @@
   --good:#2f7a3d; --good-soft:#dcefdd;
   --warn:#8a6100; --warn-soft:#f7ead1;
   --crit:#a5261d; --crit-soft:#f8dedb;
+  --heat-0:transparent;   --heat-0-ink:var(--faint);
+  --heat-1:#d7ecea;       --heat-1-ink:#14201f;
+  --heat-2:#a8d8d2;       --heat-2-ink:#14201f;
+  --heat-3:#6dbdb3;       --heat-3-ink:#14201f;
+  --heat-4:#2a9287;       --heat-4-ink:#ffffff;
+  --heat-5:#0d6b62;       --heat-5-ink:#ffffff;
   --shadow:0 1px 2px rgba(18,29,28,.06), 0 8px 24px -16px rgba(18,29,28,.35);
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
+    --heat-0:transparent;   --heat-0-ink:var(--faint);
+    --heat-1:#12302d;       --heat-1-ink:#e3ebe9;
+    --heat-2:#1c4a45;       --heat-2-ink:#e3ebe9;
+    --heat-3:#2a6b63;       --heat-3-ink:#e3ebe9;
+    --heat-4:#3a9d92;       --heat-4-ink:#06211e;
+    --heat-5:#4ecdbd;       --heat-5-ink:#06211e;
     --bg:#0c1211; --surface:#141c1b; --surface-2:#1b2524; --surface-3:#101817;
     --line:#2a3634; --line-soft:#222d2c;
     --text:#e3ebe9; --muted:#95a7a3; --faint:#71827f;
@@ -28,6 +40,12 @@
   }
 }
 :root[data-theme="dark"]{
+  --heat-0:transparent;   --heat-0-ink:var(--faint);
+  --heat-1:#12302d;       --heat-1-ink:#e3ebe9;
+  --heat-2:#1c4a45;       --heat-2-ink:#e3ebe9;
+  --heat-3:#2a6b63;       --heat-3-ink:#e3ebe9;
+  --heat-4:#3a9d92;       --heat-4-ink:#06211e;
+  --heat-5:#4ecdbd;       --heat-5-ink:#06211e;
   --bg:#0c1211; --surface:#141c1b; --surface-2:#1b2524; --surface-3:#101817;
   --line:#2a3634; --line-soft:#222d2c;
   --text:#e3ebe9; --muted:#95a7a3; --faint:#71827f;
@@ -233,6 +251,39 @@ td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:ri
 .stack{display:flex; flex-direction:column; gap:12px}
 .checkline{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text)}
 .checkline input{accent-color:var(--accent)}
+/* coverage matrix — a cell is a count, the hue carries magnitude */
+.matrix{border-collapse:separate; border-spacing:2px; width:100%; font-size:12.5px}
+.matrix th{background:transparent; position:static; padding:4px 8px; white-space:nowrap}
+.matrix th.rowhead{text-align:left; text-transform:none; letter-spacing:0; font-family:var(--sans);
+  font-size:13px; color:var(--text); font-weight:500; max-width:260px; overflow:hidden; text-overflow:ellipsis}
+.matrix td{
+  text-align:center; padding:7px 6px; border:0; border-radius:4px;
+  font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:12.5px; cursor:default;
+}
+.matrix td.z{color:var(--faint)}
+.matrix td.tot{background:var(--surface-2); color:var(--text); font-weight:600}
+.matrix tbody tr:hover td{outline:1px solid var(--accent-line)}
+
+/* single-series bars: one hue, direct labels, no legend needed */
+.bars{display:flex; flex-direction:column; gap:7px}
+.barrow{display:grid; grid-template-columns:minmax(120px,200px) 1fr auto; gap:10px; align-items:center; font-size:12.5px}
+.bartrack{background:var(--surface-2); border-radius:3px; height:10px; overflow:hidden}
+.bartrack>i{display:block; height:100%; background:var(--accent); border-radius:0 3px 3px 0}
+.barval{font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--muted); min-width:34px; text-align:right}
+
+.gaprow{display:flex; gap:9px; align-items:flex-start; padding:8px 10px; border-radius:6px;
+  background:var(--crit-soft); font-size:13px}
+.gaprow .mono{flex:none; color:var(--crit); font-weight:600}
+
+@media print{
+  .rail, .masthead-actions, .filterbar, .btn, details.raw{display:none !important}
+  body{background:#fff}
+  .wrap{max-width:none; padding:0}
+  .shell{display:block}
+  .card, .tablewrap, .kpis{break-inside:avoid; box-shadow:none}
+  .matrix td{border:1px solid #ccc}
+}
+
 details.raw{border:1px solid var(--line-soft); border-radius:7px; padding:8px 11px; background:var(--surface-3)}
 details.raw summary{cursor:pointer; font-size:12.5px; color:var(--muted); font-weight:500}
 details.raw[open] summary{margin-bottom:8px}
@@ -987,18 +1038,30 @@ function makeAc(text, gherkin) {
   return { text: t, gherkin: gherkin || null, techniques: classifyAc(t) };
 }
 
-/* ISTQB test-design techniques — this is what decides which cases get forged */
+/* ISTQB test-design techniques — this is what decides which cases get forged.
+   German inflects and compounds, so a stem is matched as a prefix:
+   \bzustand\b never sees "Zustandsübergang", and \bungültig\b never sees
+   "ungültiger". Only words that would be ambiguous as a prefix keep both
+   boundaries — "min" would otherwise match "Minute". */
+const TECH_RULES = [
+  { key: "bva",
+    stem: /\b(?:zwischen|mindest|höchst|hoechst|läng|laeng|length|zeichen|character|digit|grenz|größer|groesser|kleiner|greater|obergrenze|untergrenze)/,
+    word: /\b(?:\d+\s*(?:-|bis|to|–|and|und)\s*\d+|between|max(?:imal|imum)?|min(?:imal|imum)?|at least|at most|up to|less than|limit|stellen)\b/ },
+  { key: "epInvalid",
+    stem: /\b(?:ungültig|ungueltig|unzulässig|unzulaessig|invalid|fehler|error|abgewiesen|abweis|abgelehnt|zurückgewiesen|pflichtfeld|pflichtangabe|mandatory|erforderlich|validier|validat|warnung|warning|meldung)/,
+    word: /\b(?:reject|required|nicht erlaubt|not allowed|darf nicht|must not)\b/ },
+  { key: "dt",
+    stem: /\b(?:rolle|berechtig|permission|administrator|zugriff|gesperrt|blocked|zugelassen|befugt)/,
+    word: /\b(?:role|admin|nur|only|rechte|rights|access|darf nur)\b/ },
+  { key: "st",
+    stem: /\b(?:status|zustand|übergang|uebergang|workflow|wechsel|transition|storniert|freigegeben|abgeschlossen)/,
+    word: /\b(?:state|approved|cancelled|von .* nach|from .* to)\b/ }
+];
+
 function classifyAc(text) {
   const t = " " + text.toLowerCase() + " ";
   const tech = [];
-  if (/\b(?:\d+\s*(?:-|bis|to|–|and|und)\s*\d+|between|zwischen|max(?:imal|imum)?|min(?:imal|imum)?|mindestens|höchstens|hoechstens|at least|at most|up to|länge|laenge|length|zeichen|characters|digits|stellen|limit|grenze|größer|groesser|kleiner|greater|less than)\b/.test(t))
-    tech.push("bva");
-  if (/\b(invalid|ungültig|ungueltig|fehler|error|reject|abgelehnt|pflichtfeld|mandatory|required|erforderlich|validier|validat|nicht erlaubt|not allowed|darf nicht|must not|warnung|warning|meldung)\b/.test(t))
-    tech.push("epInvalid");
-  if (/\b(rolle|role|berechtigung|permission|admin|administrator|nur|only|recht|rights|zugriff|access|gesperrt|blocked|darf nur)\b/.test(t))
-    tech.push("dt");
-  if (/\b(status|zustand|state|von .* nach|from .* to|übergang|uebergang|workflow|wechsel|transition|storniert|freigegeben|approved|cancelled)\b/.test(t))
-    tech.push("st");
+  TECH_RULES.forEach(r => { if (r.stem.test(t) || r.word.test(t)) tech.push(r.key); });
   if (!tech.length) tech.push("ep");
   return tech;
 }
@@ -1975,6 +2038,7 @@ const STAGES = [
   { id: "match",        label: "Match",        count: () => S.archive.length && S.requirements.length ? S.requirements.length : 0 },
   { id: "generate",     label: "Generate",     count: () => S.drafts.length },
   { id: "review",       label: "Review",       count: () => S.drafts.filter(d => d.review === "approved").length },
+  { id: "coverage",     label: "Coverage",     count: () => S.requirements.length ? coverageRows().filter(x => !x.cases.length).length : 0 },
   { id: "export",       label: "Export",       count: () => exportedDrafts().length }
 ];
 
@@ -2031,7 +2095,8 @@ function renderAll() {
   renderRail(); renderKpis(); renderUndo();
   const p = $("#panel");
   p.textContent = "";
-  ({ archive: viewArchive, requirements: viewRequirements, match: viewMatch, generate: viewGenerate, review: viewReview, export: viewExport }[S.stage] || viewArchive)(p);
+  ({ archive: viewArchive, requirements: viewRequirements, match: viewMatch, generate: viewGenerate,
+     review: viewReview, coverage: viewCoverage, export: viewExport }[S.stage] || viewArchive)(p);
 }
 
 /* --------------------------------------------------------- stage: archive */
@@ -2901,6 +2966,223 @@ function draftCard(d, conv) {
 
   card.appendChild(body);
   return card;
+}
+
+/* ------------------------------------------------------- stage: coverage */
+/* The release view: where the coverage is thin, which criteria have nothing at
+   all, and what it will cost to run. Everything here counts drafts that are not
+   rejected — approving is a review decision, coverage is a planning question. */
+
+const TECH_ORDER = ["ep", "epInvalid", "bva", "dt", "st", "uc"];
+const TECH_SHORT = {
+  en: { ep:"Positive", epInvalid:"Negative", bva:"Boundary", dt:"Decision", st:"State", uc:"End-to-end" },
+  de: { ep:"Positiv", epInvalid:"Negativ", bva:"Grenzwert", dt:"Entscheidung", st:"Zustand", uc:"End-to-End" }
+};
+const techShort = k => (TECH_SHORT[genLangFor(null)] || TECH_SHORT.en)[k] || k;
+
+const liveDrafts = () => S.drafts.filter(d => d.review !== "rejected");
+
+/* Which criteria a draft answers — an end-to-end case answers all of them. */
+function draftCovers(d, index) {
+  if (d.acRef === "AC" + (index + 1)) return true;
+  const span = String(d.acRef || "").match(/^AC1–AC(\d+)$/);
+  return !!(span && index + 1 <= Number(span[1]));
+}
+
+function coverageRows() {
+  const live = liveDrafts();
+  const out = [];
+  S.requirements.forEach(r => {
+    const mine = live.filter(d => d.requirement === r.key);
+    if (!r.ac.length) {
+      out.push({ req: r, label: "—", text: r.summary, cases: mine });
+      return;
+    }
+    r.ac.forEach((ac, i) => {
+      out.push({ req: r, label: "AC" + (i + 1), text: ac.text, cases: mine.filter(d => draftCovers(d, i)) });
+    });
+  });
+  return out;
+}
+
+/* Minutes out of whatever the project calls its duration field. */
+function parseMinutes(v) {
+  const s = String(v == null ? "" : v).toLowerCase().replace(",", ".");
+  let m = s.match(/(\d+(?:\.\d+)?)\s*(h|std|hour|stunde)/);
+  if (m) return Math.round(parseFloat(m[1]) * 60);
+  m = s.match(/(\d+(?:\.\d+)?)\s*(min|minute)/);
+  if (m) return Math.round(parseFloat(m[1]));
+  m = s.match(/^\s*(\d+)\s*$/);
+  return m ? Number(m[1]) : 0;
+}
+function humanMinutes(t) {
+  const h = Math.floor(t / 60), m = t % 60;
+  return (h ? h + " h " : "") + m + " min";
+}
+function effortEstimate() {
+  let best = null;
+  ((S.conventions && S.conventions.extra) || []).forEach(f => {
+    const mins = S.archive.map(c => parseMinutes((c.extra || {})[f.name])).filter(x => x > 0);
+    if (mins.length >= 3 && (!best || mins.length > best.mins.length)) best = { name: f.name, mins: mins };
+  });
+  if (!best) return null;
+  const avg = best.mins.reduce((a, b) => a + b, 0) / best.mins.length;
+  const n = liveDrafts().length;
+  return { field: best.name, sample: best.mins.length, avg: Math.round(avg), cases: n, total: Math.round(avg * n) };
+}
+
+function viewCoverage(p) {
+  p.appendChild(head("Coverage",
+    "What this release covers and what it does not, before any of it reaches qTest. Counts include every draft you have not dropped."));
+
+  if (!S.requirements.length) {
+    p.appendChild(el("div", { class: "empty", text: "Import the requirements for this release to see its coverage." }));
+    return;
+  }
+
+  const rows = coverageRows();
+  const gaps = rows.filter(x => !x.cases.length);
+  const byReq = {};
+  rows.forEach(x => {
+    const k = x.req.key;
+    byReq[k] = byReq[k] || { req: x.req, total: 0, covered: 0 };
+    byReq[k].total++;
+    if (x.cases.length) byReq[k].covered++;
+  });
+  const reqs = Object.keys(byReq).map(k => byReq[k]);
+  const full = reqs.filter(x => x.covered === x.total).length;
+  const none = reqs.filter(x => !x.covered).length;
+  const part = reqs.length - full - none;
+  const eff = effortEstimate();
+
+  /* headline tiles — the four numbers a release meeting asks for */
+  const tiles = el("div", { class: "kpis" });
+  const tile = (k, v, n, cls) => tiles.appendChild(el("div", { class: "kpi " + (cls || "") }, [
+    el("span", { class: "k", text: k }),
+    el("span", { class: "v", text: v }),
+    n ? el("span", { class: "n", text: n }) : null
+  ]));
+  tile("Fully covered", String(full), "of " + reqs.length + " requirements", full === reqs.length ? "is-good" : "");
+  tile("Partly covered", String(part), part ? "criteria still open" : "none", part ? "is-warn" : "");
+  tile("No coverage", String(none), none ? "nothing written yet" : "none", none ? "is-crit" : "is-good");
+  tile("Run time", eff ? humanMinutes(eff.total) : "—",
+    eff ? liveDrafts().length + " cases × ø " + eff.avg + " min" : "no duration field in the archive");
+  p.appendChild(tiles);
+
+  /* the matrix: module against technique, the hue carrying the count */
+  const counts = new Map();
+  liveDrafts().forEach(d => {
+    const k = d.module || "(no module)";
+    if (!counts.has(k)) counts.set(k, {});
+    const row = counts.get(k);
+    row[d.technique] = (row[d.technique] || 0) + 1;
+  });
+  const modules = Array.from(counts.keys())
+    .map(k => ({ name: k, row: counts.get(k), total: TECH_ORDER.reduce((n, t) => n + (counts.get(k)[t] || 0), 0) }))
+    .sort((a, b) => b.total - a.total);
+  const peak = Math.max.apply(null, [1].concat(modules.map(m =>
+    Math.max.apply(null, [0].concat(TECH_ORDER.map(t => m.row[t] || 0))))));
+
+  const matrixCard = el("div", { class: "card" }, [
+    el("h3", { text: "Where the coverage sits" }),
+    el("p", { class: "card-sub", text: "Cases per module and test design technique. A pale column across every module is a technique this release is not using." })
+  ]);
+  if (!modules.length) matrixCard.appendChild(el("p", { class: "small", text: "No drafts yet." }));
+  else {
+    const tw = el("div", { class: "tablewrap", style: "padding:8px" });
+    const t = el("table", { class: "matrix" });
+    t.appendChild(el("thead", {}, el("tr", {}, [el("th", { class: "rowhead", text: "Module" })]
+      .concat(TECH_ORDER.map(k => el("th", { text: techShort(k) })))
+      .concat([el("th", { text: "All" })]))));
+    const tb = el("tbody");
+    modules.forEach(m => {
+      const tr = el("tr", {}, [el("th", { class: "rowhead", text: m.name, title: m.name })]);
+      TECH_ORDER.forEach(k => {
+        const n = m.row[k] || 0;
+        const step = n === 0 ? 0 : Math.max(1, Math.ceil(n / peak * 5));
+        tr.appendChild(el("td", {
+          class: n ? "" : "z",
+          style: "background:var(--heat-" + step + ");color:var(--heat-" + step + "-ink)",
+          title: m.name + " · " + techName(k, genLangFor(null)) + ": " + n + (n === 1 ? " case" : " cases"),
+          text: n ? String(n) : "–"
+        }));
+      });
+      tr.appendChild(el("td", { class: "tot", text: String(m.total) }));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); tw.appendChild(t); matrixCard.appendChild(tw);
+  }
+
+  /* technique mix — one measure across categories, so one hue and no legend */
+  const mix = {};
+  liveDrafts().forEach(d => { mix[d.technique] = (mix[d.technique] || 0) + 1; });
+  const mixMax = Math.max.apply(null, [1].concat(TECH_ORDER.map(k => mix[k] || 0)));
+  const mixCard = el("div", { class: "card" }, [
+    el("h3", { text: "Technique mix" }),
+    el("p", { class: "card-sub", text: "A release that is only positive cases is a release that only proves the happy path." }),
+    el("div", { class: "bars" }, TECH_ORDER.map(k => {
+      const n = mix[k] || 0;
+      return el("div", { class: "barrow" }, [
+        el("span", { text: techShort(k), title: techName(k, genLangFor(null)) }),
+        el("span", { class: "bartrack" }, el("i", { style: "width:" + Math.round(n / mixMax * 100) + "%" })),
+        el("span", { class: "barval", text: String(n) })
+      ]);
+    }))
+  ]);
+
+  // the matrix is the point of this page, so it gets the full width
+  p.appendChild(matrixCard);
+
+  /* the actionable half: what has nothing */
+  const gapCard = el("div", { class: "card" }, [el("h3", { text: "Gaps" })]);
+  if (!gaps.length) {
+    gapCard.appendChild(el("div", { class: "note", text: "Every acceptance criterion in this release has at least one test case." }));
+  } else {
+    gapCard.appendChild(el("p", { class: "card-sub", text: gaps.length + " acceptance criteria have no test case. Each one is a hole a release goes live with." }));
+    gapCard.appendChild(el("div", { class: "stack" }, gaps.slice(0, 40).map(g => el("div", { class: "gaprow" }, [
+      el("span", { class: "mono", text: g.req.key + " " + g.label }),
+      el("span", { text: g.text })
+    ]))));
+    if (gaps.length > 40) gapCard.appendChild(el("p", { class: "small", style: "margin-top:8px", text: "…and " + (gaps.length - 40) + " more." }));
+  }
+  p.appendChild(el("div", { class: "split" }, [gapCard, mixCard]));
+
+  /* per requirement, for the table view */
+  const tw2 = el("div", { class: "tablewrap" });
+  const t2 = el("table");
+  t2.appendChild(el("thead", {}, el("tr", {}, ["Requirement", "Criteria", "Covered", "Cases", "Techniques"].map(h =>
+    el("th", { text: h, class: (h === "Criteria" || h === "Covered" || h === "Cases") ? "num" : "" })))));
+  const tb2 = el("tbody");
+  reqs.forEach(x => {
+    const mine = liveDrafts().filter(d => d.requirement === x.req.key);
+    const techs = uniq(mine.map(d => d.technique));
+    tb2.appendChild(el("tr", {}, [
+      el("td", {}, [el("span", { class: "mono small", text: x.req.key }), document.createTextNode(" " + x.req.summary)]),
+      el("td", { class: "num", text: String(x.total) }),
+      el("td", { class: "num" }, el("span", {
+        class: "chip " + (x.covered === x.total ? "good" : x.covered ? "warn" : "crit"),
+        text: x.covered === x.total ? "all" : x.covered + " of " + x.total
+      })),
+      el("td", { class: "num", text: String(mine.length) }),
+      el("td", {}, el("div", { class: "row" }, techs.map(k => el("span", { class: "chip", text: techShort(k) }))))
+    ]));
+  });
+  t2.appendChild(tb2); tw2.appendChild(t2);
+  p.appendChild(el("div", { class: "card" }, [
+    el("div", { class: "row" }, [
+      el("h3", { text: "By requirement", style: "margin:0" }),
+      el("span", { style: "margin-left:auto" }),
+      el("button", { class: "btn sm", type: "button", onclick: () => { try { window.print(); } catch (e) { toast("Printing is blocked here — open the file from disk to print."); } } }, "Print this page")
+    ]),
+    el("div", { style: "margin-top:12px" }, tw2)
+  ]));
+
+  if (eff) {
+    p.appendChild(el("p", { class: "small", text:
+      "Run time is read from your archive's “" + eff.field + "” field across " + eff.sample +
+      " cases (average " + eff.avg + " min) and multiplied by the " + eff.cases +
+      " drafts in this release. It is an order of magnitude, not a plan." }));
+  }
 }
 
 /* ---------------------------------------------------------- stage: export */

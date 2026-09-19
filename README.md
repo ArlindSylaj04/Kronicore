@@ -62,10 +62,26 @@ This tool reads all of that out of the archive and applies it to the new require
 | 3 | **Match** | Two routes to a template: directly, requirement text against each archived case; and through history, requirement against each **past** requirement, then the cases that covered it. |
 | 4 | **Generate** | Each acceptance criterion produces the cases its ISTQB technique calls for. |
 | 5 | **Review** | Edit, add or remove steps, approve or drop. Nothing is final until you approve it. |
-| 6 | **Export** | qTest import CSV, one row per test step, plus a traceability matrix — and/or a Tosca automation spec. |
+| 6 | **Coverage** | What the release covers and what it does not, before any of it reaches qTest: a module × technique matrix, the gaps as a list, the technique mix, and an estimated run time. Printable. |
+| 7 | **Export** | qTest import CSV, one row per test step, plus a traceability matrix — and/or a Tosca automation spec. |
 
 The **Target** on the Generate stage decides which files stage 6 writes: qTest manual test
 cases, a Tosca automation specification, or both from the same drafts.
+
+## Coverage
+
+The release view, and the one to take into a planning meeting.
+
+- **Module × technique matrix** — cases per module against the ISTQB technique that
+  produced them, on a single-hue sequential ramp where the lightest cell is near zero. A
+  pale column across every module is a technique the release is not using at all.
+- **Gaps** — every acceptance criterion with no test case, listed. Marked with a status
+  colour *and* a label, never colour alone.
+- **Technique mix** — one measure across categories, so one hue and no legend. It answers
+  whether a release is only proving the happy path.
+- **Run time** — read from whichever project field holds a duration, averaged across the
+  archive and multiplied by the drafts in this release. An order of magnitude, and the page
+  says so.
 
 ## Two routes to a template
 
