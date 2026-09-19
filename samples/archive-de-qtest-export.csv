@@ -32,3 +32,11 @@ TF-208;TF_Mahnwesen_Gebühr bei verspäteter Rückgabe_Web_Volltest;End-to-End-A
 TF-208;;;;;;;;;;;;;;;2;Das überfällige Medium zurücknehmen;Eine Mahngebühr wird berechnet und dem Mitgliedskonto belastet
 TF-208;;;;;;;;;;;;;;;3;Die Gebühr als bezahlt buchen;Das Mitgliedskonto ist ausgeglichen und ein Beleg wird erzeugt
 TF-208;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-901;TF_Mahnwesen_Mahnlauf starten_Web_Regression;;;;Manual;Low;Entwurf;0.9;;Altbestand;;;;Testumgebung T1;1;Den Mahnlauf im Tagesabschluss starten;
+TF-901;;;;;;;;;;;;;;;2;Die Liste der überfälligen Ausleihen öffnen;
+TF-901;;;;;;;;;;;;;;;3;Die Mahnungen drucken;
+TF-902;TF_Mahnwesen_Mahnlauf starten_Web_Regression;Wiederholter Mahnlauf, übernommen aus einem älteren Projekt.;;Mahnwesen;Manual;Medium;Freigegeben;1.0;x;Altbestand;BIB-1330;;25 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-902;;;;;;;;;;;;;;;2;Den Mahnlauf für das aktuelle Datum starten;Der Mahnlauf läuft durch und die Anzahl der erzeugten Mahnungen wird angezeigt
+TF-902;;;;;;;;;;;;;;;3;Die erzeugten Mahnungen prüfen;
+TF-903;Gebühr;;;Mahnwesen;Manual;Low;Entwurf;0.9;;Altbestand;;;;Testumgebung T1;1;Die offene Gebühr im Mitgliedskonto aufrufen;Die offene Gebühr wird mit Betrag und Datum angezeigt
+TF-903;;;;;;;;;;;;;;;2;Die Gebühr buchen;

@@ -49,6 +49,46 @@ that can act on it, filtered to that slice. Review then shows which filter is ac
 removable pill, so a filtered list never looks like the whole list. A draft's requirement
 chip opens the ticket; its `≈ TC-…` chip opens the archived case it resembles.
 
+## Test health
+
+Every case, archived or drafted, carries a score out of 100 and a band — **Excellent**,
+**Good**, **Needs review**, **Critical**. It is not a vibe: each point comes from a field
+the case either carries or does not.
+
+| Check | Weight | What earns full marks |
+|---|---:|---|
+| Test steps | 22 | more than one step |
+| Expected results | 22 | every step states one; partial credit for a share of them |
+| Requirement link | 14 | an issue key to trace back to |
+| Duplicate risk | 14 | no archived case with the same name, no close match in the knowledge base |
+| Title | 12 | between 12 and 140 characters, so it reads on its own in a run list |
+| Precondition | 10 | the starting state is written down |
+| Placement | 8 | a module or a path in the tree |
+| Step size | 8 | at most 25 steps, no single step over 400 characters |
+
+**A check your project does not use is not counted against anyone.** If fewer than a fifth
+of your archived cases carry a precondition, that is a convention, not ten thousand bad
+test cases — the check drops out and the remaining weights are rescaled. The same goes for
+requirement links and module placement. The card on the Knowledge Base stage says which
+checks it skipped and why.
+
+Duplicate risk is measured differently on the two sides, because the cost is different.
+An archived case is checked against the other archived names in one pass — cheap, and it
+catches the real consolidation problem, the same test written four times under four old
+project names. A draft is checked against the full text of every archived case, which is
+the expensive comparison and the one worth paying for on a few dozen drafts.
+
+Where it shows:
+
+- **Knowledge Base** — a distribution across the four bands, plus the archive's mean.
+  Clicking a band filters the table to it, which is how you find the thousand cases worth
+  migrating and the thousand that are not.
+- **The archive table** — a `Health` column on every row, the tooltip naming what is
+  missing.
+- **A single case** — the full checklist, one line per check, each saying what it found.
+- **A draft in Review** — the score in the header, and *"3 things this case is still
+  missing"* folded open beneath it, so the fix is next to the field that needs it.
+
 ## The problem it solves
 
 Every release you get a set of Jira stories and you need test cases in qTest for them.
@@ -88,6 +128,26 @@ The release view, and the one to take into a planning meeting.
 - **Run time** — read from whichever project field holds a duration, averaged across the
   archive and multiplied by the drafts in this release. An order of magnitude, and the page
   says so.
+
+### Traceability
+
+Requirement → acceptance criterion → the case that answers it, open on the page rather
+than only in the exported matrix. Each requirement is a fold showing its coverage bar and
+case count; opening it lists every criterion with the cases beneath it, each chip carrying
+that case's health and opening it in Review.
+
+A criterion with nothing under it is red and carries the two ways of closing it:
+
+- **Generate** forges the cases for that requirement again from the knowledge base.
+  Approved drafts and cases you linked by hand survive it — only untouched drafts are
+  replaced.
+- **Link existing** opens the closest archived cases, ranked, each with its health. Picking
+  one carries it into Review whole — steps, precondition, project fields — pinned to that
+  criterion, so it counts towards coverage and lands in the exported matrix. It is not
+  flagged as a duplicate of itself, and *Undo* takes it back.
+
+Requirements with a hole open by default when there are twelve or fewer; **Expand all**
+handles the rest, and printing opens every fold so nothing prints as a bare heading.
 
 ## Two routes to a template
 
@@ -357,7 +417,7 @@ test case, with requirements that have no coverage marked `— NO COVERAGE —`.
 
 | File | Shows |
 |---|---|
-| `samples/archive-de-qtest-export.csv` | the built-in sample: German qTest export with custom project fields and `…_Web_Regression` naming |
+| `samples/archive-de-qtest-export.csv` | the built-in sample: German qTest export with custom project fields and `…_Web_Regression` naming, ending in a weaker legacy block so the health bands have something to show |
 | `samples/jira-requirements-de.csv` | the built-in sample: German tickets with bullets, Gherkin (`Angenommen/Wenn/Dann`) and duplicated `Labels` columns |
 | `samples/archive-en-labels.csv` | a second project shape: English qTest labels around German content, bracket naming, no Precondition column, its own project fields |
 | `samples/archive-qtest-export.csv` | the same shape in English |

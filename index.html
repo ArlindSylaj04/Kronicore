@@ -293,6 +293,55 @@ button.barrow:hover .bartrack>i{filter:brightness(1.12)}
 .gaprow:hover{box-shadow:inset 0 0 0 1px var(--crit)}
 .gaprow .mono{flex:none; color:var(--crit); font-weight:600}
 
+/* ---------- test case health ---------- */
+.hchip{display:inline-flex; align-items:center; gap:6px; padding:2px 9px 2px 3px; border-radius:20px;
+  font-size:11.5px; font-weight:500; border:1px solid var(--line-soft);
+  background:var(--surface-2); color:var(--muted); white-space:nowrap}
+.hchip .hs{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:11px; font-weight:600;
+  min-width:28px; text-align:center; padding:1px 4px; border-radius:20px;
+  background:var(--surface); color:var(--text)}
+.hchip.good{background:var(--good-soft); color:var(--good); border-color:transparent}
+.hchip.warn{background:var(--warn-soft); color:var(--warn); border-color:transparent}
+.hchip.crit{background:var(--crit-soft); color:var(--crit); border-color:transparent}
+
+.checklist{display:flex; flex-direction:column; gap:5px; margin:0; padding:0; list-style:none}
+.checklist li{display:grid; grid-template-columns:15px minmax(92px,128px) 1fr; gap:9px; align-items:baseline;
+  font-size:12.5px; padding:5px 9px; border-radius:6px;
+  background:var(--surface-3); border:1px solid var(--line-soft)}
+.checklist .mk{font-family:var(--mono); font-size:12px; text-align:center; font-weight:600}
+.checklist .lb{font-weight:500}
+.checklist .nt{color:var(--muted)}
+.checklist li.good .mk{color:var(--good)}
+.checklist li.warn .mk{color:var(--warn)}
+.checklist li.crit .mk{color:var(--crit)}
+.checklist li.na{opacity:.55}
+button.barrow.on{background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line)}
+
+/* ---------- traceability: requirement, criterion, case ---------- */
+.tracereq{border:1px solid var(--line); border-radius:8px; background:var(--surface); overflow:hidden}
+.tracereq+.tracereq{margin-top:8px}
+.tracereq>summary{display:flex; flex-wrap:wrap; gap:8px 11px; align-items:center;
+  padding:9px 12px; cursor:pointer; background:var(--surface-3); font-size:13px; list-style:none}
+.tracereq>summary::-webkit-details-marker{display:none}
+.tracereq>summary::marker{content:""}
+.tracereq>summary:hover{background:var(--surface-2)}
+.tracereq>summary .tw{font-family:var(--mono); font-size:10px; color:var(--faint); flex:none; width:10px}
+.tracereq[open]>summary .tw::after{content:"\25be"}
+.tracereq:not([open])>summary .tw::after{content:"\25b8"}
+.tracereq>summary .key{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--accent); flex:none}
+.tracereq>summary .sum{flex:1 1 200px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tracereq>summary .techs{display:flex; flex-wrap:wrap; gap:5px}
+.tracereq[open]>summary .techs{display:none}
+.tracereq .acrows{display:flex; flex-direction:column; gap:7px; padding:11px 12px}
+.acrow{display:grid; grid-template-columns:42px 1fr; gap:10px; align-items:start; font-size:12.5px;
+  padding:8px 10px; border-radius:6px; background:var(--surface-3); border:1px solid var(--line-soft)}
+.acrow.gap{background:var(--crit-soft); border-color:transparent}
+.acrow .acn{font-family:var(--mono); font-size:10.5px; color:var(--faint); padding-top:3px}
+.acrow.gap .acn{color:var(--crit); font-weight:600}
+.acrow .acbody{display:flex; flex-direction:column; gap:7px; min-width:0}
+.acrow .acacts{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+.acrow .acacts .chip{max-width:100%; overflow:hidden; text-overflow:ellipsis; display:inline-block}
+
 @media print{
   .rail, .masthead-actions, .filterbar, .btn, details.raw{display:none !important}
   body{background:#fff}
@@ -300,6 +349,7 @@ button.barrow:hover .bartrack>i{filter:brightness(1.12)}
   .shell{display:block}
   .card, .tablewrap, .kpis{break-inside:avoid; box-shadow:none}
   .matrix td{border:1px solid #ccc}
+  .tracereq{break-inside:avoid}
 }
 
 details.raw{border:1px solid var(--line-soft); border-radius:7px; padding:8px 11px; background:var(--surface-3)}
@@ -353,7 +403,7 @@ const S = {
   conventions: null,
   archiveHeaders: null,
   sampleLoaded: false,
-  filters: { archive:"", archiveType:"", archiveArea:"", drafts:"",
+  filters: { archive:"", archiveType:"", archiveArea:"", archiveHealth:"", drafts:"",
              draftReq:"", draftTech:"", draftModule:"", draftFlag:"" },
   importPath: "",                   // node of the module tree the next import belongs to
   migrateThreshold: 40,             // percent from which a suggestion is applied in bulk
@@ -496,6 +546,10 @@ function mergeArchive(cases) {
   return { added: added, updated: updated };
 }
 
+/* Carried over whole from the knowledge base, either to Tosca or onto a
+   criterion — either way it is not a new case that happens to look like one. */
+const fromArchive = d => d.origin === "archive" || d.origin === "linked";
+
 /* ---- is this draft just a case we already have? -------------------------- */
 function flagDuplicates() {
   if (!S.archive.length || !S.drafts.length) return;
@@ -505,7 +559,7 @@ function flagDuplicates() {
       d.steps.map(x => x.action + " " + x.expected).join(" "));
     let best = null, score = 0;
     arc.forEach(a => {
-      if (a.c.tcid === d.templateId && d.origin === "archive") return;  // it *is* that case
+      if (a.c.tcid === d.templateId && fromArchive(d)) return;  // it *is* that case
       const sc = cosine(dTok, a.tok);
       if (sc > score) { score = sc; best = a.c; }
     });
@@ -1271,6 +1325,7 @@ function matchesFor(req, limit) {
 
 /* ------------------------------------------- conventions from the archive */
 function deriveConventions() {
+  resetHealth();
   const A = S.archive;
   if (!A.length) { S.conventions = null; return; }
 
@@ -1478,6 +1533,171 @@ const P = {
   }
 };
 const p = lang => P[lang] || P.en;
+
+/* --------------------------------------------------- test case health */
+/* A score you can defend in a review meeting: every point comes from a field
+   the case either carries or does not, and a check your project never uses is
+   not counted against anyone. This is what decides which of several thousand
+   inherited cases are worth carrying into the new tree. */
+
+const HEALTH_CHECKS = [
+  { key: "steps",    w: 22, label: "Test steps" },
+  { key: "expected", w: 22, label: "Expected results" },
+  { key: "req",      w: 14, label: "Requirement link" },
+  { key: "dup",      w: 14, label: "Duplicate risk" },
+  { key: "title",    w: 12, label: "Title" },
+  { key: "pre",      w: 10, label: "Precondition" },
+  { key: "module",   w:  8, label: "Placement" },
+  { key: "size",     w:  8, label: "Step size" }
+];
+const HEALTH_BANDS = [
+  { key: "excellent", label: "Excellent",    min: 85, cls: "good" },
+  { key: "good",      label: "Good",         min: 70, cls: "" },
+  { key: "review",    label: "Needs review", min: 50, cls: "warn" },
+  { key: "critical",  label: "Critical",     min:  0, cls: "crit" }
+];
+const healthBand = n => HEALTH_BANDS.filter(b => n >= b.min)[0];
+const healthBandByKey = k => HEALTH_BANDS.filter(b => b.key === k)[0] || HEALTH_BANDS[0];
+
+/* Which fields this project actually keeps. A team that never writes
+   preconditions is not a team with ten thousand bad test cases. */
+let HEALTH_PROFILE = null, HEALTH_GEN = 0;
+let HEALTH_CACHE = new WeakMap();
+function resetHealth() { HEALTH_PROFILE = null; HEALTH_GEN++; HEALTH_CACHE = new WeakMap(); }
+
+function healthProfile() {
+  if (HEALTH_PROFILE && HEALTH_PROFILE.n === S.archive.length) return HEALTH_PROFILE;
+  const n = S.archive.length;
+  const share = fn => n ? S.archive.filter(fn).length / n : 1;
+  HEALTH_PROFILE = {
+    n: n, gen: HEALTH_GEN,
+    // under five cases there is no convention to read, so ask for everything
+    pre:    n < 5 || share(c => !!clean(c.precondition)) >= 0.2,
+    req:    n < 5 || share(c => !!clean(c.requirement))  >= 0.2,
+    module: n < 5 || share(c => !!clean(c.path || c.module)) >= 0.2,
+    names:  nameCollisions()
+  };
+  return HEALTH_PROFILE;
+}
+
+/* Consolidating old projects means the same test written four times under four
+   project names. An exact name collision is the cheap half of that and costs
+   one pass; the expensive half is what the duplicate flag on a draft does. */
+function nameCollisions() {
+  const seen = {}, dup = {};
+  S.archive.forEach(c => {
+    const k = norm(c.name);
+    if (!k) return;
+    if (seen[k]) dup[k] = true; else seen[k] = 1;
+  });
+  return dup;
+}
+
+function healthOf(item, isDraft) {
+  const prof = healthProfile();
+  if (!isDraft) {
+    const hit = HEALTH_CACHE.get(item);
+    if (hit && hit.gen === prof.gen) return hit.v;
+  }
+  const v = computeHealth(item, isDraft, prof);
+  if (!isDraft) HEALTH_CACHE.set(item, { gen: prof.gen, v: v });
+  return v;
+}
+
+function computeHealth(item, isDraft, prof) {
+  const steps = item.steps || [];
+  const withExp = steps.filter(x => clean(x.expected)).length;
+  const r = {};
+
+  r.steps = !steps.length
+    ? { s: 0, note: "No test steps — there is nothing to run." }
+    : steps.length === 1
+      ? { s: 0.6, note: "A single step; most cases need an action and a check." }
+      : { s: 1, note: steps.length + " steps." };
+
+  r.expected = !steps.length
+    ? { s: 0, note: "No steps, so no expected results." }
+    : !withExp
+      ? { s: 0, note: "Not one step states an expected result — this is a procedure, not a test." }
+      : withExp === steps.length
+        ? { s: 1, note: "Every step states an expected result." }
+        : { s: withExp / steps.length, note: withExp + " of " + steps.length + " steps state an expected result." };
+
+  r.req = !prof.req ? null
+    : clean(item.requirement)
+      ? { s: 1, note: "Traceable to " + clean(item.requirement) + "." }
+      : { s: 0, note: "No requirement or issue key — the case cannot be traced." };
+
+  if (isDraft) {
+    r.dup = item.similar
+      ? { s: item.similar.score >= 85 ? 0 : 0.4,
+          note: "Close to the archived " + item.similar.tcid + " (" + item.similar.score + "%)." }
+      : { s: 1, note: "Nothing in the knowledge base comes close to it." };
+  } else {
+    r.dup = prof.names[norm(item.name)]
+      ? { s: 0.25, note: "Another archived case carries exactly this name — one of them is redundant." }
+      : { s: 1, note: "Its name is unique in the knowledge base." };
+  }
+
+  const nm = clean(item.name);
+  r.title = (!nm || /^untitled/i.test(nm))
+    ? { s: 0, note: "No usable title." }
+    : nm.length < 12
+      ? { s: 0.4, note: "The title is " + nm.length + " characters — it will not mean much in a run list." }
+      : nm.length > 140
+        ? { s: 0.5, note: "The title runs to " + nm.length + " characters; it reads as a description." }
+        : { s: 1, note: "The title reads clearly on its own." };
+
+  r.pre = !prof.pre ? null
+    : clean(item.precondition)
+      ? { s: 1, note: "The starting state is stated." }
+      : { s: 0, note: "No precondition — the starting state is left to whoever runs it." };
+
+  r.module = !prof.module ? null
+    : clean(item.path || item.module)
+      ? { s: 1, note: "Placed in " + clean(item.path || item.module) + "." }
+      : { s: 0, note: "No module or path — it has nowhere to live in the tree." };
+
+  const longest = steps.reduce((n, x) => Math.max(n, clean(x.action).length), 0);
+  r.size = steps.length > 25
+    ? { s: 0.3, note: steps.length + " steps — long cases are hard to maintain and harder to automate." }
+    : longest > 400
+      ? { s: 0.5, note: "One step runs to " + longest + " characters; it holds more than one action." }
+      : { s: 1, note: "The steps are a workable size." };
+
+  let got = 0, max = 0;
+  const checks = [];
+  HEALTH_CHECKS.forEach(c => {
+    const x = r[c.key];
+    if (!x) { checks.push({ key: c.key, label: c.label, state: "na", note: "Your project does not keep this field." }); return; }
+    got += x.s * c.w; max += c.w;
+    checks.push({ key: c.key, label: c.label, note: x.note,
+                  state: x.s >= 0.999 ? "good" : x.s >= 0.5 ? "warn" : "crit" });
+  });
+  const score = max ? Math.round(got / max * 100) : 100;
+  return { score: score, band: healthBand(score), checks: checks };
+}
+
+function healthTooltip(h) {
+  const bad = h.checks.filter(c => c.state === "warn" || c.state === "crit");
+  return bad.length
+    ? "Health " + h.score + "/100\n" + bad.map(c => "• " + c.note).join("\n")
+    : "Health " + h.score + "/100 — nothing missing.";
+}
+function healthChip(h) {
+  return el("span", { class: "hchip " + h.band.cls, title: healthTooltip(h) }, [
+    el("span", { class: "hs", text: String(h.score) }),
+    el("span", { text: h.band.label })
+  ]);
+}
+function healthList(checks) {
+  const mark = st => st === "good" ? "✓" : st === "na" ? "–" : st === "warn" ? "!" : "×";
+  return el("ul", { class: "checklist" }, checks.map(k => el("li", { class: k.state }, [
+    el("span", { class: "mk", text: mark(k.state) }),
+    el("span", { class: "lb", text: k.label }),
+    el("span", { class: "nt", text: k.note })
+  ])));
+}
 
 /* ------------------------------------------------------------ generation */
 const TRIGGER_SPLIT = /\s+(?:then|so that|results in|führt zu|fuehrt zu|,\s*dann|dann|→|->|=>)\s+/i;
@@ -1739,8 +1959,9 @@ function runGeneration(onlyKey) {
   deriveConventions();
   const targets = onlyKey ? S.requirements.filter(r => r.key === onlyKey) : S.requirements;
   const keys = new Set(targets.map(r => r.key));
-  // keep manually approved work, replace untouched drafts
-  const kept = S.drafts.filter(d => !keys.has(d.requirement) || d.review === "approved");
+  // Replace untouched drafts, but never what you chose by hand: an approval, or
+  // a case you carried over from the knowledge base onto a criterion.
+  const kept = S.drafts.filter(d => !keys.has(d.requirement) || d.review === "approved" || fromArchive(d));
   const fresh = [];
   targets.forEach(r => generateFor(r).forEach(d => fresh.push(d)));
   S.drafts = kept.concat(fresh);
@@ -2018,7 +2239,7 @@ function draftFromArchiveCase(c) {
 function convertArchiveCases(list) {
   if (!list.length) { toast("Nothing to convert."); return; }
   const have = {};
-  S.drafts.forEach(d => { if (d.origin === "archive") have[d.templateId] = true; });
+  S.drafts.forEach(d => { if (fromArchive(d)) have[d.templateId] = true; });
   const fresh = list.filter(c => !have[c.tcid]).map(draftFromArchiveCase);
   if (!fresh.length) { toast("Those cases are already in Review."); return; }
   S.drafts = S.drafts.concat(fresh);
@@ -2378,6 +2599,49 @@ function viewArchive(p) {
     }
   }
 
+  /* Which of these are worth carrying into the new tree, before you decide
+     what to migrate. The bands filter the table, so the number is a way in. */
+  if (S.archive.length >= 3) {
+    const dist = {};
+    HEALTH_BANDS.forEach(b => { dist[b.key] = 0; });
+    let sum = 0;
+    S.archive.forEach(c => { const h = healthOf(c); dist[h.band.key]++; sum += h.score; });
+    const hmax = Math.max.apply(null, [1].concat(HEALTH_BANDS.map(b => dist[b.key])));
+    const avg = Math.round(sum / S.archive.length);
+    const skipped = healthProfile();
+    const notKept = [!skipped.pre ? "preconditions" : null, !skipped.req ? "requirement links" : null,
+                     !skipped.module ? "modules" : null].filter(Boolean);
+    p.appendChild(el("div", { class: "card" }, [
+      el("div", { class: "row" }, [
+        el("h3", { text: "Test health", style: "margin:0" }),
+        el("span", { style: "margin-left:auto" }),
+        el("span", { class: "hchip " + healthBand(avg).cls,
+          title: "The mean across all " + S.archive.length + " archived cases." }, [
+          el("span", { class: "hs", text: String(avg) }),
+          el("span", { text: "average" })
+        ])
+      ]),
+      el("p", { class: "card-sub", style: "margin-top:8px", text:
+        "Scored on what each case actually carries: steps, expected results, a requirement, a place in the tree, a title that reads. " +
+        (notKept.length
+          ? "Your archive does not keep " + notKept.join(" or ") + ", so those are not counted against anyone."
+          : "Click a band to show only those cases.") }),
+      el("div", { class: "bars" }, HEALTH_BANDS.map(b => {
+        const n = dist[b.key], on = S.filters.archiveHealth === b.key;
+        const kids = [
+          el("span", {}, el("span", { class: "chip " + b.cls, text: b.label })),
+          el("span", { class: "bartrack" }, el("i", { style: "width:" + Math.round(n / hmax * 100) + "%" })),
+          el("span", { class: "barval", text: String(n) })
+        ];
+        return n ? el("button", {
+          class: "barrow" + (on ? " on" : ""), type: "button",
+          title: on ? "Show every band again" : "Show only the cases scored " + b.label.toLowerCase(),
+          onclick: () => { S.filters.archiveHealth = on ? "" : b.key; renderAll(); }
+        }, kids) : el("div", { class: "barrow" }, kids);
+      }))
+    ]));
+  }
+
   const types = uniq(S.archive.map(c => c.type));
   const bar = el("div", { class: "filterbar" }, [
     el("input", {
@@ -2387,6 +2651,11 @@ function viewArchive(p) {
     el("select", {
       id: "arc-type", onchange: e => { S.filters.archiveType = e.target.value; renderArchiveTable(); }
     }, [el("option", { value: "", text: "All types" })].concat(types.map(t => el("option", { value: t, text: t, selected: S.filters.archiveType === t })))),
+    S.filters.archiveHealth ? el("span", { class: "pill" }, [
+      document.createTextNode("health: " + healthBandByKey(S.filters.archiveHealth).label),
+      el("button", { type: "button", title: "Show every band again",
+                     onclick: () => { S.filters.archiveHealth = ""; renderAll(); } }, "\u00d7")
+    ]) : null,
     el("span", { class: "small", id: "arc-count" }),
     el("button", { class: "btn sm", type: "button", onclick: () => convertArchiveCases(shownArchive().slice(0, 200)) }, "Carry shown over to Review"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("removing every test case"); S.archive = []; S.conventions = null; S.archiveHeaders = null; save(); renderAll(); } }, "Remove every test case")
@@ -2495,6 +2764,7 @@ function shownArchive() {
   return S.archive.filter(c => {
     if (S.filters.archiveArea && pathSegments(c).indexOf(S.filters.archiveArea) < 0) return false;
     if (S.filters.archiveType && c.type !== S.filters.archiveType) return false;
+    if (S.filters.archiveHealth && healthOf(c).band.key !== S.filters.archiveHealth) return false;
     if (!q) return true;
     return (c.name + " " + (c.path || c.area) + " " + c.module + " " + c.tags + " " + c.steps.map(s => s.action).join(" ")).toLowerCase().indexOf(q) >= 0;
   });
@@ -2506,7 +2776,7 @@ function renderArchiveTable() {
   const cnt = $("#arc-count"); if (cnt) cnt.textContent = list.length + " of " + S.archive.length + " shown";
   wrap.textContent = "";
   const t = el("table");
-  t.appendChild(el("thead", {}, el("tr", {}, ["ID", "Name", "Area", "Module", "Type", "Priority", "Steps"].map(h =>
+  t.appendChild(el("thead", {}, el("tr", {}, ["ID", "Name", "Area", "Module", "Type", "Priority", "Health", "Steps"].map(h =>
     el("th", { text: h, class: h === "Steps" ? "num" : "" })))));
   const tb = el("tbody");
   list.slice(0, 400).forEach(c => {
@@ -2517,6 +2787,7 @@ function renderArchiveTable() {
       el("td", { text: c.module || "—" }),
       el("td", {}, c.type ? el("span", { class: "chip", text: c.type }) : document.createTextNode("—")),
       el("td", { text: c.priority || "—" }),
+      el("td", {}, healthChip(healthOf(c))),
       el("td", { class: "num", text: String(c.steps.length) })
     ]);
     tb.appendChild(tr);
@@ -2545,6 +2816,17 @@ function showArchiveCase(c) {
   if (c.module) body.appendChild(el("p", { class: "small", text: "Module: " + c.module }));
   if (c.description) body.appendChild(el("p", { text: c.description }));
   if (c.precondition) body.appendChild(el("div", { class: "note", html: "<strong>Precondition</strong><br>" + escapeHtml(c.precondition).replace(/\n/g, "<br>") }));
+
+  const h = healthOf(c);
+  body.appendChild(el("div", { class: "card tight" }, [
+    el("div", { class: "row" }, [
+      el("h3", { text: "Test health", style: "margin:0" }),
+      el("span", { style: "margin-left:auto" }),
+      healthChip(h)
+    ]),
+    el("div", { style: "margin-top:10px" }, healthList(h.checks))
+  ]));
+
   const tw = el("div", { class: "tablewrap" });
   const t = el("table", { class: "steps" });
   t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" })])));
@@ -2951,7 +3233,8 @@ function renderDraftList() {
 function refreshReview() { renderRail(); renderKpis(); renderDraftList(); }
 
 function draftCard(d, conv) {
-  const card = el("div", { class: "draft " + (d.review === "approved" ? "approved" : d.review === "rejected" ? "rejected" : "") });
+  const card = el("div", { id: "d-" + d.uid, class: "draft " + (d.review === "approved" ? "approved" : d.review === "rejected" ? "rejected" : "") });
+  const health = healthOf(d, true);
 
   const title = el("input", { class: "title-in", type: "text", value: d.name, id: "n-" + d.uid });
   title.addEventListener("input", e => { d.name = e.target.value; save(); });
@@ -2974,6 +3257,7 @@ function draftCard(d, conv) {
       }
     }, "≈ " + d.similar.tcid + " · " + d.similar.score + "%") : null,
     el("span", { class: "chip accent", text: techName(d.technique, d.lang || "en") }),
+    healthChip(health),
     el("button", {
       class: "btn sm " + (d.review === "approved" ? "primary" : ""), type: "button",
       onclick: () => { d.review = d.review === "approved" ? "draft" : "approved"; save(); refreshReview(); }
@@ -2985,6 +3269,16 @@ function draftCard(d, conv) {
   ]));
 
   const body = el("div", { class: "body" });
+
+  // what stands between this draft and a case you would sign off, spelled out
+  const missing = health.checks.filter(k => k.state === "warn" || k.state === "crit");
+  if (missing.length) {
+    body.appendChild(el("details", { class: "raw" }, [
+      el("summary", { text: missing.length === 1
+        ? "1 thing this case is still missing" : missing.length + " things this case is still missing" }),
+      healthList(missing)
+    ]));
+  }
 
   const sel = (label, key, options) => {
     const s = el("select", { id: key + "-" + d.uid });
@@ -3247,35 +3541,32 @@ function viewCoverage(p) {
   }
   p.appendChild(el("div", { class: "split" }, [gapCard, mixCard]));
 
-  /* per requirement, for the table view */
-  const tw2 = el("div", { class: "tablewrap" });
-  const t2 = el("table");
-  t2.appendChild(el("thead", {}, el("tr", {}, ["Requirement", "Criteria", "Covered", "Cases", "Techniques"].map(h =>
-    el("th", { text: h, class: (h === "Criteria" || h === "Covered" || h === "Cases") ? "num" : "" })))));
-  const tb2 = el("tbody");
-  reqs.forEach(x => {
-    const mine = liveDrafts().filter(d => d.requirement === x.req.key);
-    const techs = uniq(mine.map(d => d.technique));
-    tb2.appendChild(el("tr", { style: "cursor:pointer", title: "Open the drafts for " + x.req.key, onclick: () => goto("review", { draftReq: x.req.key }) }, [
-      el("td", {}, [el("span", { class: "mono small", text: x.req.key }), document.createTextNode(" " + x.req.summary)]),
-      el("td", { class: "num", text: String(x.total) }),
-      el("td", { class: "num" }, el("span", {
-        class: "chip " + (x.covered === x.total ? "good" : x.covered ? "warn" : "crit"),
-        text: x.covered === x.total ? "all" : x.covered + " of " + x.total
-      })),
-      el("td", { class: "num", text: String(mine.length) }),
-      el("td", {}, el("div", { class: "row" }, techs.map(k => el("span", { class: "chip", text: techShort(k) }))))
-    ]));
-  });
-  t2.appendChild(tb2); tw2.appendChild(t2);
-  p.appendChild(el("div", { class: "card", id: "cov-byreq" }, [
+  /* Traceability: requirement down to criterion down to the case that answers
+     it. The same three columns the export writes, but open on the page and
+     with the two ways of closing a hole attached to the hole itself. */
+  const byKey = {};
+  rows.forEach(x => { (byKey[x.req.key] = byKey[x.req.key] || []).push(x); });
+  const autoOpen = reqs.length <= 12;
+  const traceCard = el("div", { class: "card", id: "cov-byreq" }, [
     el("div", { class: "row" }, [
-      el("h3", { text: "By requirement", style: "margin:0" }),
+      el("h3", { text: "Traceability", style: "margin:0" }),
       el("span", { style: "margin-left:auto" }),
+      el("button", { class: "btn sm", type: "button", title: "Open or close every requirement",
+        onclick: e => {
+          const all = Array.prototype.slice.call(traceCard.querySelectorAll("details.tracereq"));
+          const opening = all.some(x => !x.open);
+          all.forEach(x => { x.open = opening; });
+          e.currentTarget.textContent = opening ? "Collapse all" : "Expand all";
+        } }, (autoOpen && reqs.some(x => x.covered < x.total)) ? "Collapse all" : "Expand all"),
+      el("button", { class: "btn sm", type: "button", title: "The same matrix as a file",
+        onclick: () => goto("export") }, "Export the matrix"),
       el("button", { class: "btn sm", type: "button", onclick: () => { try { window.print(); } catch (e) { toast("Printing is blocked here — open the file from disk to print."); } } }, "Print this page")
     ]),
-    el("div", { style: "margin-top:12px" }, tw2)
-  ]));
+    el("p", { class: "card-sub", style: "margin-top:8px", text:
+      "Every requirement, every acceptance criterion under it, and the case that answers it. A criterion with nothing under it carries the two ways of closing it." })
+  ]);
+  reqs.forEach(x => traceCard.appendChild(traceBlock(x, byKey[x.req.key] || [], autoOpen)));
+  p.appendChild(traceCard);
 
   if (eff) {
     p.appendChild(el("p", { class: "small", text:
@@ -3283,6 +3574,112 @@ function viewCoverage(p) {
       " cases (average " + eff.avg + " min) and multiplied by the " + eff.cases +
       " drafts in this release. It is an order of magnitude, not a plan." }));
   }
+}
+
+/* One requirement, opened out into its criteria and the cases beneath them. */
+function traceBlock(x, acRows, autoOpen) {
+  const req = x.req;
+  const mine = liveDrafts().filter(d => d.requirement === req.key);
+  const pct = x.total ? Math.round(x.covered / x.total * 100) : 0;
+  const cls = x.covered === x.total ? "good" : x.covered ? "warn" : "crit";
+
+  const box = el("details", { class: "tracereq", open: (autoOpen && x.covered < x.total) ? "" : null });
+  box.appendChild(el("summary", {}, [
+    el("span", { class: "tw" }),
+    el("span", { class: "key", text: req.key }),
+    el("span", { class: "sum", text: req.summary, title: req.summary }),
+    el("span", { class: "bar", title: pct + "% of its criteria are covered" }, el("i", { style: "width:" + pct + "%" })),
+    el("span", { class: "chip " + cls,
+      text: x.covered === x.total ? "all " + x.total + " covered" : x.covered + " of " + x.total }),
+    el("span", { class: "small", text: mine.length + (mine.length === 1 ? " case" : " cases") }),
+    // the technique mix, worth seeing while the fold is shut and noise once it is open
+    el("span", { class: "techs" }, uniq(mine.map(d => d.technique))
+      .map(k => el("span", { class: "chip", text: techShort(k), title: techName(k, genLangFor(null)) })))
+  ]));
+
+  const list = el("div", { class: "acrows" });
+  acRows.forEach(r => {
+    const acts = el("div", { class: "acacts" });
+    if (r.cases.length) {
+      r.cases.forEach(d => {
+        const h = healthOf(d, true);
+        acts.appendChild(el("button", {
+          class: "chip " + (h.band.cls || "good"), type: "button", style: "cursor:pointer",
+          title: d.name + "\n\n" + healthTooltip(h) + "\n\nOpen it in Review",
+          onclick: () => goto("review", { draftReq: req.key }, "d-" + d.uid)
+        }, "✓ " + d.name));
+      });
+    } else {
+      acts.appendChild(el("span", { class: "chip crit", text: "no test case" }));
+      acts.appendChild(el("button", {
+        class: "btn sm", type: "button", title: "Forge the cases for " + req.key + " from the knowledge base",
+        onclick: () => { runGeneration(req.key); goto("review", { draftReq: req.key }); }
+      }, "Generate"));
+      acts.appendChild(el("button", {
+        class: "btn sm", type: "button", title: "Pin an existing archived case to this criterion",
+        onclick: () => showAcLinkPicker(req, r.label)
+      }, "Link existing"));
+    }
+    list.appendChild(el("div", { class: "acrow " + (r.cases.length ? "" : "gap") }, [
+      el("span", { class: "acn", text: r.label }),
+      el("div", { class: "acbody" }, [el("span", { text: r.text }), acts])
+    ]));
+  });
+  box.appendChild(list);
+  return box;
+}
+
+/* Some criteria are already proved by a case sitting in the archive. This pins
+   that case to the criterion instead of forging a near-copy beside it. */
+function showAcLinkPicker(req, acLabel) {
+  const p = $("#panel");
+  p.textContent = "";
+  p.appendChild(el("div", { class: "row" }, [
+    el("button", { class: "btn sm", type: "button", onclick: () => goto("coverage", null, "cov-byreq") }, "← Back to coverage")
+  ]));
+  const card = el("div", { class: "reqcard" }, [
+    el("header", {}, [
+      el("span", { class: "key", text: req.key + (acLabel === "—" ? "" : " · " + acLabel) }),
+      el("span", { class: "sum", text: req.summary })
+    ])
+  ]);
+  const body = el("div", { class: "body" });
+  const m = /^AC(\d+)$/.exec(acLabel);
+  const idx = m ? Number(m[1]) - 1 : -1;
+  if (idx >= 0 && req.ac[idx]) body.appendChild(el("div", { class: "note", text: req.ac[idx].text }));
+
+  const matches = matchesFor(req, 12);
+  if (!S.archive.length) {
+    body.appendChild(el("div", { class: "empty", text: "There is no knowledge base to link from yet." }));
+  } else if (!matches.length) {
+    body.appendChild(el("div", { class: "empty", text: "Nothing archived comes close to this requirement. Forge a new case instead." }));
+  } else {
+    body.appendChild(el("p", { class: "card-sub", text:
+      "The closest archived cases. Pick the one that already proves this criterion — it is carried into Review whole, steps and all, with the criterion attached." }));
+    body.appendChild(el("div", { class: "stack" }, matches.map(x => el("div", { class: "matchrow" }, [
+      el("span", { class: "mono small", text: x.tc.tcid }),
+      el("span", { class: "nm", text: x.tc.name }),
+      healthChip(healthOf(x.tc)),
+      el("span", { class: "bar", title: "How close it is to the requirement" }, el("i", { style: "width:" + Math.round(x.score * 100) + "%" })),
+      el("span", { class: "score", text: Math.round(x.score * 100) + "%" }),
+      el("button", { class: "btn sm", type: "button", onclick: () => linkArchiveCase(x.tc, req, acLabel) }, "Link this case")
+    ]))));
+  }
+  card.appendChild(body);
+  p.appendChild(card);
+}
+
+function linkArchiveCase(c, req, acLabel) {
+  pushUndo("linking an archived case");
+  const d = draftFromArchiveCase(c);
+  d.requirement = req.key;
+  d.acRef = acLabel === "—" ? "" : acLabel;
+  d.origin = "linked";
+  S.drafts.push(d);
+  flagDuplicates();
+  save();
+  goto("review", { draftReq: req.key }, "d-" + d.uid);
+  toast(c.tcid + " linked to " + req.key + (d.acRef ? " " + d.acRef : "") + ".");
 }
 
 /* ---------------------------------------------------------- stage: export */
@@ -3443,7 +3840,15 @@ TF-207;;;;;;;;;;;;;;;6;Abmelden;Die Anmeldeseite wird angezeigt
 TF-208;TF_Mahnwesen_Gebühr bei verspäteter Rückgabe_Web_Volltest;End-to-End-Ablauf für die Berechnung einer Mahngebühr.;Für das Mitglied 100234 ist eine Ausleihe überfällig.;Mahnwesen;Manual;Medium;Freigegeben;1.1;x;Mahnwesen;BIB-1330;E. Beispiel;40 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
 TF-208;;;;;;;;;;;;;;;2;Das überfällige Medium zurücknehmen;Eine Mahngebühr wird berechnet und dem Mitgliedskonto belastet
 TF-208;;;;;;;;;;;;;;;3;Die Gebühr als bezahlt buchen;Das Mitgliedskonto ist ausgeglichen und ein Beleg wird erzeugt
-TF-208;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt`;
+TF-208;;;;;;;;;;;;;;;4;Abmelden;Die Anmeldeseite wird angezeigt
+TF-901;TF_Mahnwesen_Mahnlauf starten_Web_Regression;;;;Manual;Low;Entwurf;0.9;;Altbestand;;;;Testumgebung T1;1;Den Mahnlauf im Tagesabschluss starten;
+TF-901;;;;;;;;;;;;;;;2;Die Liste der überfälligen Ausleihen öffnen;
+TF-901;;;;;;;;;;;;;;;3;Die Mahnungen drucken;
+TF-902;TF_Mahnwesen_Mahnlauf starten_Web_Regression;Wiederholter Mahnlauf, übernommen aus einem älteren Projekt.;;Mahnwesen;Manual;Medium;Freigegeben;1.0;x;Altbestand;BIB-1330;;25 Min;Testumgebung T1;1;Am Bibliothekssystem als Mitarbeiter anmelden;Die Startseite wird mit dem Benutzernamen in der Kopfzeile angezeigt
+TF-902;;;;;;;;;;;;;;;2;Den Mahnlauf für das aktuelle Datum starten;Der Mahnlauf läuft durch und die Anzahl der erzeugten Mahnungen wird angezeigt
+TF-902;;;;;;;;;;;;;;;3;Die erzeugten Mahnungen prüfen;
+TF-903;Gebühr;;;Mahnwesen;Manual;Low;Entwurf;0.9;;Altbestand;;;;Testumgebung T1;1;Die offene Gebühr im Mitgliedskonto aufrufen;Die offene Gebühr wird mit Betrag und Datum angezeigt
+TF-903;;;;;;;;;;;;;;;2;Die Gebühr buchen;`;
 
 const SAMPLE_HISTORY_CSV = `Issue key,Issue Type,Summary,Description,Custom field (Akzeptanzkriterien),Priority,Status,Components,Fix Version/s
 BIB-1101,Story,Katalogsuche über ISBN und Titel,"Mitarbeitende sollen Medien schnell über ISBN oder Titel finden.","- Die Suche über die vollständige ISBN liefert genau einen Treffer
@@ -3494,6 +3899,19 @@ function loadSample() {
   save(); renderAll();
   toast("Sample project loaded — a German qTest archive, the three tickets it was written for, three new ones, and the drafts they produce.");
 }
+
+/* A collapsed requirement would print as a bare heading, so paper gets all
+   of them open and the screen gets them back the way they were. */
+let PRINT_REOPENED = [];
+window.addEventListener("beforeprint", () => {
+  PRINT_REOPENED = Array.prototype.slice.call(document.querySelectorAll("details.tracereq"))
+    .filter(x => !x.open);
+  PRINT_REOPENED.forEach(x => { x.open = true; });
+});
+window.addEventListener("afterprint", () => {
+  PRINT_REOPENED.forEach(x => { x.open = false; });
+  PRINT_REOPENED = [];
+});
 
 /* ---------------------------------------------------------------- boot */
 $("#btn-undo").addEventListener("click", undoLast);
