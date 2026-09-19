@@ -38,6 +38,31 @@ Genuinely new drafts score well under the threshold — in testing they sat betw
 27%, while an identical case scores around 100% — so the chip means something when it
 appears. A case carried over from the archive is not flagged against itself.
 
+**Side by side.** Both the chip and the *Compare with TC-…* button open the archived case
+and the draft in two columns with a **word-level** diff — red is only on the left, green
+only on the right. A line-level diff is no use here: two test cases that differ in one
+number look identical in one. It opens for two different questions:
+
+- a *flagged duplicate*, where the buttons are **Keep both** (clears the flag) and
+  **Drop the draft** (the archived case already covers it);
+- any draft against *the case it was derived from*, which answers "what did the generator
+  keep from TF-207, and what did it write itself?" — there is nothing to decide there, so
+  those two buttons do not appear.
+
+Steps are lined up by position, so one inserted step colours everything after it, and the
+page says so underneath. Fields identical on both sides stay grey.
+
+**The step editor.** Every step row carries move up, move down, duplicate and delete;
+deleting and duplicating take an undo snapshot, moving does not because clicking the other
+arrow is the undo. Only the one card re-renders, so the list does not jump and the field
+you were typing in keeps focus — after a move, focus follows the step.
+
+**Bulk actions.** Tick the drafts you mean, or *Select all shown* to take whatever the
+filters are showing. The bar that appears can approve, put back to draft, drop, delete, and
+set module, priority, status or type across the selection. Every one of them snapshots
+first. The selection lives for the sitting only: it is never written to the project file
+and a stage change clears it.
+
 **Bulk actions can be taken back.** Approving everything shown, discarding unapproved
 drafts, placing cases in the tree, removing a branch, clearing the archive, forging a new
 set of drafts — each takes a snapshot first, and an *Undo* button appears in the header.
@@ -50,6 +75,7 @@ removable pill, so a filtered list never looks like the whole list. A draft's re
 chip opens the ticket; its `≈ TC-…` chip opens the archived case it resembles.
 
 ## Test health
+
 
 Every case, archived or drafted, carries a score out of 100 and a band — **Excellent**,
 **Good**, **Needs review**, **Critical**. It is not a vibe: each point comes from a field

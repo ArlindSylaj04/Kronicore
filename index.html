@@ -342,8 +342,39 @@ button.barrow.on{background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(-
 .acrow .acacts{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
 .acrow .acacts .chip{max-width:100%; overflow:hidden; text-overflow:ellipsis; display:inline-block}
 
+/* ---------- step editor ---------- */
+.steps th.acts,.steps td.acts{width:108px; white-space:nowrap; text-align:right}
+.stepbtn{display:inline-flex; align-items:center; justify-content:center; width:23px; height:23px;
+  padding:0; border:1px solid transparent; border-radius:5px; background:transparent;
+  color:var(--faint); cursor:pointer; font-size:13px; line-height:1}
+.stepbtn:hover{background:var(--surface-2); color:var(--text)}
+.stepbtn:disabled{opacity:.22; cursor:not-allowed}
+.stepbtn.danger:hover{background:var(--crit-soft); color:var(--crit)}
+
+/* ---------- selection and bulk actions ---------- */
+.draft.picked{border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent)}
+.draft>header .pick{accent-color:var(--accent); flex:none; width:15px; height:15px; cursor:pointer; margin:0}
+.bulkbar{position:sticky; top:8px; z-index:20; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  padding:9px 12px; border-radius:8px; background:var(--accent-soft);
+  border:1px solid var(--accent-line); box-shadow:var(--shadow)}
+.bulkbar .count{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--accent)}
+.bulkbar select{width:auto; min-width:104px; background:var(--surface)}
+
+/* ---------- the same case twice, side by side ---------- */
+.cmp{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px;
+  background:var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden}
+@media (max-width:760px){ .cmp{grid-template-columns:minmax(0,1fr)} }
+.cmp>div{background:var(--surface); padding:9px 12px; min-width:0}
+.cmp .cmphead{background:var(--surface-3); font-size:12.5px; font-weight:600; position:sticky; top:0; z-index:1}
+.cmplabel{grid-column:1/-1; background:var(--surface-3); font-family:var(--mono);
+  font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); padding:6px 12px}
+.cmplabel.differs{color:var(--warn); background:var(--warn-soft)}
+.cmpfield{font-size:12.5px; white-space:pre-wrap; overflow-wrap:anywhere}
+ins.d{background:var(--good-soft); color:var(--good); text-decoration:none; border-radius:3px; padding:0 1px}
+del.d{background:var(--crit-soft); color:var(--crit); border-radius:3px; padding:0 1px}
+
 @media print{
-  .rail, .masthead-actions, .filterbar, .btn, details.raw{display:none !important}
+  .rail, .masthead-actions, .filterbar, .btn, details.raw, .bulkbar, .stepbtn{display:none !important}
   body{background:#fff}
   .wrap{max-width:none; padding:0}
   .shell{display:block}
@@ -3173,13 +3204,76 @@ function viewReview(p) {
     el("button", { class: "btn sm", type: "button", onclick: () => { pushUndo("approving all shown"); shownDrafts().forEach(d => { if (d.review !== "rejected") d.review = "approved"; }); save(); renderAll(); } }, "Approve all shown"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("discarding unapproved drafts"); S.drafts = S.drafts.filter(d => d.review === "approved"); save(); renderAll(); } }, "Discard unapproved"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { flagDuplicates(); save(); renderAll(); toast("Checked every draft against the archive."); } }, "Check against the archive"),
+    el("label", { class: "checkline", title: "Select every draft the filters currently show" }, [
+      el("input", { type: "checkbox", id: "pick-all", onchange: e => {
+        const shown = shownDrafts();
+        shown.forEach(d => { if (e.target.checked) PICKED.add(d.uid); else PICKED.delete(d.uid); });
+        renderDraftList(); renderBulkBar();
+      } }),
+      el("span", { class: "small", text: "Select all shown" })
+    ]),
     dupCount ? el("button", { class: "btn sm", type: "button",
       onclick: () => goto("review", { draftFlag: "duplicate" }) },
       dupCount + " close to an archived case") : null,
     el("span", { class: "small", id: "dr-count" })
   ]));
+  p.appendChild(el("div", { class: "bulkbar", id: "bulkbar", hidden: true }));
   p.appendChild(el("div", { class: "stack", id: "draft-list" }));
   renderDraftList();
+  renderBulkBar();
+}
+
+/* One decision applied to many drafts. Every one of these takes a snapshot
+   first, because a bulk action is exactly the kind you want back. */
+function renderBulkBar() {
+  const host = $("#bulkbar");
+  if (!host) return;
+  prunePicked();
+  const list = pickedDrafts();
+  host.textContent = "";
+  host.hidden = !list.length;
+  if (!list.length) return;
+
+  const conv = S.conventions || {};
+  const run = (label, fn) => {
+    pushUndo(label + " in bulk");
+    fn(list);
+    save(); renderAll();
+    toast(list.length + (list.length === 1 ? " draft " : " drafts ") + label + ".");
+  };
+  const btn = (text, label, fn, cls) => el("button", {
+    class: "btn sm " + (cls || ""), type: "button", onclick: () => run(label, fn)
+  }, text);
+
+  const setter = (label, key, options) => {
+    const sel = el("select", { title: "Set the " + label.toLowerCase() + " of every selected draft" },
+      [el("option", { value: "", text: label + "\u2026", selected: true })].concat(
+        uniq(options).sort().map(o => el("option", { value: o, text: o }))));
+    sel.addEventListener("change", e => {
+      const v = e.target.value;
+      if (!v) return;
+      run("set to " + v, l => l.forEach(d => { d[key] = v; }));
+    });
+    return sel;
+  };
+
+  host.appendChild(el("span", { class: "count", text: list.length + " selected" }));
+  host.appendChild(btn("Approve", "approved", l => l.forEach(d => { d.review = "approved"; }), "primary"));
+  host.appendChild(btn("Back to draft", "put back to draft", l => l.forEach(d => { d.review = "draft"; })));
+  host.appendChild(btn("Drop", "dropped", l => l.forEach(d => { d.review = "rejected"; })));
+  host.appendChild(setter("Module", "module", (conv.modules || []).concat(S.drafts.map(d => d.module))));
+  host.appendChild(setter("Priority", "priority", (conv.priorities || []).concat(S.drafts.map(d => d.priority))));
+  host.appendChild(setter("Status", "status", (conv.statuses || []).concat(S.drafts.map(d => d.status))));
+  host.appendChild(setter("Type", "type", (conv.types || []).concat(S.drafts.map(d => d.type))));
+  host.appendChild(el("span", { style: "margin-left:auto" }));
+  host.appendChild(el("button", { class: "btn ghost sm", type: "button",
+    title: "Remove them from the project — Drop only marks them rejected",
+    onclick: () => run("deleted", l => {
+      const gone = new Set(l.map(d => d.uid));
+      S.drafts = S.drafts.filter(d => !gone.has(d.uid));
+    }) }, "Delete"));
+  host.appendChild(el("button", { class: "btn ghost sm", type: "button",
+    onclick: () => { PICKED.clear(); renderAll(); } }, "Clear selection"));
 }
 
 function shownDrafts() {
@@ -3207,6 +3301,7 @@ function clearDraftFilters() {
 let PENDING_SCROLL = "";
 function goto(stage, filters, scrollTo) {
   clearDraftFilters();
+  PICKED.clear();
   if (filters) Object.keys(filters).forEach(k => { S.filters[k] = filters[k]; });
   S.stage = stage;
   PENDING_SCROLL = scrollTo || "";
@@ -3228,18 +3323,34 @@ function renderDraftList() {
   box.textContent = "";
   const conv = S.conventions || {};
   list.forEach(d => box.appendChild(draftCard(d, conv)));
+  const all = $("#pick-all");
+  if (all) all.checked = list.length > 0 && list.every(d => PICKED.has(d.uid));
 }
 
-function refreshReview() { renderRail(); renderKpis(); renderDraftList(); }
+function refreshReview() { renderRail(); renderKpis(); renderDraftList(); renderBulkBar(); }
 
 function draftCard(d, conv) {
-  const card = el("div", { id: "d-" + d.uid, class: "draft " + (d.review === "approved" ? "approved" : d.review === "rejected" ? "rejected" : "") });
+  const card = el("div", { id: "d-" + d.uid, class: "draft "
+    + (d.review === "approved" ? "approved " : d.review === "rejected" ? "rejected " : "")
+    + (PICKED.has(d.uid) ? "picked" : "") });
   const health = healthOf(d, true);
+  const cmpId = comparableId(d);
+
+  const pick = el("input", { type: "checkbox", class: "pick",
+    title: "Select this draft for a bulk action", checked: PICKED.has(d.uid) ? "" : null });
+  pick.addEventListener("change", e => {
+    if (e.target.checked) PICKED.add(d.uid); else PICKED.delete(d.uid);
+    card.classList.toggle("picked", e.target.checked);
+    renderBulkBar();
+    const all = $("#pick-all");
+    if (all) { const sh = shownDrafts(); all.checked = sh.length > 0 && sh.every(x => PICKED.has(x.uid)); }
+  });
 
   const title = el("input", { class: "title-in", type: "text", value: d.name, id: "n-" + d.uid });
   title.addEventListener("input", e => { d.name = e.target.value; save(); });
 
   card.appendChild(el("header", {}, [
+    pick,
     (d.origin === "archive" || !d.requirement)
       ? el("span", { class: "grip", text: d.origin === "archive" ? "archive · " + d.templateId : "—" })
       : el("button", { class: "chip mono", type: "button", title: "Open " + d.requirement,
@@ -3249,13 +3360,9 @@ function draftCard(d, conv) {
     d.needsWording ? el("span", { class: "chip warn", text: "needs wording" }) : null,
     d.similar ? el("button", {
       class: "chip crit mono", type: "button", style: "cursor:pointer",
-      title: "Closest archived case: " + d.similar.name + " — open it",
-      onclick: () => {
-        const c = S.archive.filter(x => x.tcid === d.similar.tcid)[0];
-        goto("archive");
-        if (c) showArchiveCase(c);
-      }
-    }, "≈ " + d.similar.tcid + " · " + d.similar.score + "%") : null,
+      title: "Closest archived case: " + d.similar.name + " \u2014 see the two side by side",
+      onclick: () => showCompare(d)
+    }, "\u2248 " + d.similar.tcid + " \u00b7 " + d.similar.score + "%") : null,
     el("span", { class: "chip accent", text: techName(d.technique, d.lang || "en") }),
     healthChip(health),
     el("button", {
@@ -3329,30 +3436,219 @@ function draftCard(d, conv) {
 
   const tw = el("div", { class: "tablewrap" });
   const t = el("table", { class: "steps" });
-  t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" }), el("th", { text: "" })])));
+  t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" }), el("th", { class: "acts", text: "" })])));
   const tb = el("tbody");
   d.steps.forEach((s, i) => {
     const a = el("textarea", { id: "sa-" + d.uid + "-" + i }); a.value = s.action;
     a.addEventListener("input", e => { s.action = e.target.value; save(); });
     const x = el("textarea", { id: "sx-" + d.uid + "-" + i }); x.value = s.expected;
     x.addEventListener("input", e => { s.expected = e.target.value; d.needsWording = false; save(); });
+    const act = (glyph, title, fn, cls, off) => el("button", {
+      class: "stepbtn " + (cls || ""), type: "button", title: title,
+      disabled: off ? "" : null, onclick: fn
+    }, glyph);
     tb.appendChild(el("tr", {}, [
       el("td", { class: "id", text: String(i + 1) }),
       el("td", {}, a),
       el("td", {}, x),
-      el("td", {}, el("button", { class: "btn ghost sm", type: "button", onclick: () => { d.steps.splice(i, 1); save(); refreshReview(); } }, "×"))
+      el("td", { class: "acts" }, [
+        act("\u2191", "Move this step up", () => moveStep(d, i, -1), "", i === 0),
+        act("\u2193", "Move this step down", () => moveStep(d, i, 1), "", i === d.steps.length - 1),
+        act("\u29c9", "Duplicate this step", () => {
+          pushUndo("duplicating a step");
+          d.steps.splice(i + 1, 0, { action: s.action, expected: s.expected });
+          save(); refreshDraft(d);
+        }),
+        act("\u00d7", "Delete this step", () => {
+          pushUndo("deleting a step");
+          d.steps.splice(i, 1); save(); refreshDraft(d);
+        }, "danger")
+      ])
     ]));
   });
   t.appendChild(tb); tw.appendChild(t);
   body.appendChild(tw);
 
   body.appendChild(el("div", { class: "row" }, [
-    el("button", { class: "btn sm", type: "button", onclick: () => { d.steps.push({ action: "", expected: "" }); save(); refreshReview(); } }, "Add step"),
+    el("button", { class: "btn sm", type: "button", onclick: () => {
+      d.steps.push({ action: "", expected: "" }); save(); refreshDraft(d);
+      const t2 = document.getElementById("sa-" + d.uid + "-" + (d.steps.length - 1));
+      if (t2) t2.focus();
+    } }, "Add step"),
+    cmpId ? el("button", { class: "btn sm", type: "button",
+      title: d.similar
+        ? "See this draft and " + cmpId + " field by field"
+        : "See what the generator kept from " + cmpId + " and what it wrote itself",
+      onclick: () => showCompare(d, cmpId) }, "Compare with " + cmpId) : null,
     d.templateId ? el("span", { class: "small", style: "margin-left:auto", text: "Derived from " + d.templateId + " · " + d.templateName + " (" + d.templateScore + "% match)" }) : null
   ]));
 
   card.appendChild(body);
   return card;
+}
+
+/* ---- what the bulk actions act on ---------------------------------------- */
+/* A selection belongs to the sitting, not to the project, so it is never
+   written to the project file and never survives a stage change. */
+let PICKED = new Set();
+const pickedDrafts = () => S.drafts.filter(d => PICKED.has(d.uid));
+function prunePicked() {
+  const live = new Set(S.drafts.map(d => d.uid));
+  Array.from(PICKED).forEach(u => { if (!live.has(u)) PICKED.delete(u); });
+}
+
+/* Re-render one card in place. Rebuilding the whole list on every step edit
+   throws away the scroll position and the field you were typing into. */
+function refreshDraft(d) {
+  const old = document.getElementById("d-" + d.uid);
+  if (!old) { refreshReview(); return; }
+  old.replaceWith(draftCard(d, S.conventions || {}));
+  renderRail(); renderKpis(); renderUndo(); renderBulkBar();
+}
+
+function moveStep(d, i, by) {
+  const j = i + by;
+  if (j < 0 || j >= d.steps.length) return;
+  const keep = d.steps[i];
+  d.steps[i] = d.steps[j];
+  d.steps[j] = keep;
+  save(); refreshDraft(d);
+  const t = document.getElementById("sa-" + d.uid + "-" + j);
+  if (t) t.focus();
+}
+
+/* ---- the same case twice, side by side ----------------------------------- */
+/* A duplicate flag is only worth having if you can see what actually differs,
+   and two test cases that differ in one number look identical in a line-level
+   diff — so this one works on words. */
+const DIFF_BUDGET = 250000;   // beyond that the quadratic table is not worth it
+
+function diffWords(a, b) {
+  const A = String(a == null ? "" : a).split(/(\s+)/);
+  const B = String(b == null ? "" : b).split(/(\s+)/);
+  const n = A.length, m = B.length;
+  const L = [];
+  for (let i = 0; i <= n; i++) L.push(new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+
+  const left = [], right = [];
+  const push = (arr, kind, text) => {
+    const last = arr[arr.length - 1];
+    if (last && last.kind === kind) last.text += text; else arr.push({ kind: kind, text: text });
+  };
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { push(left, "same", A[i]); push(right, "same", B[j]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) { push(left, "del", A[i]); i++; }
+    else { push(right, "ins", B[j]); j++; }
+  }
+  while (i < n) { push(left, "del", A[i]); i++; }
+  while (j < m) { push(right, "ins", B[j]); j++; }
+  return {
+    left: left, right: right,
+    same: !left.some(x => x.kind !== "same") && !right.some(x => x.kind !== "same")
+  };
+}
+
+function diffNode(parts) {
+  const box = el("div", { class: "cmpfield" });
+  if (!parts.length || parts.every(x => !clean(x.text))) {
+    box.appendChild(el("span", { class: "small", text: "—" }));
+    return box;
+  }
+  parts.forEach(pt => box.appendChild(
+    pt.kind === "same" ? document.createTextNode(pt.text)
+      : el(pt.kind === "del" ? "del" : "ins", { class: "d", text: pt.text })));
+  return box;
+}
+
+const backToReview = uid => { S.stage = "review"; PENDING_SCROLL = "d-" + uid; renderAll(); };
+
+/* Two reasons to open this view. A flagged near-duplicate is the loud one. The
+   quiet one is every generated draft against the case it was derived from:
+   "what did the tool take from TF-207, and what did it write itself?" is a
+   question worth answering without reading both in two tabs. */
+const comparableId = d => {
+  const id = (d.similar && d.similar.tcid) || d.templateId || "";
+  return S.archive.some(x => x.tcid === id) ? id : "";
+};
+
+function showCompare(d, wanted) {
+  const id = wanted || comparableId(d);
+  const c = S.archive.filter(x => x.tcid === id)[0];
+  if (!c) { toast("That archived case is no longer in the knowledge base."); return; }
+  const dup = !!(d.similar && d.similar.tcid === id);
+  // the same figure the card already shows, so two adjacent screens agree:
+  // the duplicate flag is raw cosine, a template match is the blended score
+  const pct = dup ? d.similar.score
+    : (d.templateId === id && d.templateScore ? d.templateScore : Math.round(cosine(
+        tokenize(d.name + " " + d.description + " " + d.steps.map(x => x.action + " " + x.expected).join(" ")),
+        tokenize(archiveText(c))) * 100));
+  const p = $("#panel");
+  p.textContent = "";
+
+  p.appendChild(el("div", { class: "row" }, [
+    el("button", { class: "btn sm", type: "button", onclick: () => backToReview(d.uid) }, "← Back to review"),
+    el("button", { class: "btn sm", type: "button",
+      onclick: () => { goto("archive"); showArchiveCase(c); } }, "Open the archived case"),
+    el("span", { style: "margin-left:auto" }),
+    dup ? el("button", { class: "btn sm", type: "button",
+      title: "They are different enough — stop flagging this draft",
+      onclick: () => { d.similar = null; save(); backToReview(d.uid); toast("Kept both."); } }, "Keep both") : null,
+    dup ? el("button", { class: "btn ghost sm", type: "button",
+      title: "The archived case already covers this — drop the draft",
+      onclick: () => {
+        pushUndo("dropping a duplicate draft");
+        d.review = "rejected"; save(); backToReview(d.uid);
+        toast("Draft dropped — " + c.tcid + " stands.");
+      } }, "Drop the draft") : null
+  ].filter(Boolean)));
+
+  p.appendChild(head("Side by side", dup
+    ? "The archived case on the left, your draft on the right, flagged as a near-duplicate at " + pct +
+      "% alike. Red is only in the archive, green only in the draft. A row with no colour is a row the draft adds nothing to."
+    : "The case this draft was derived from on the left, the draft on the right, " + pct +
+      "% alike. Red is what the generator left behind, green what it wrote itself."));
+
+  const grid = el("div", { class: "cmp" });
+  grid.appendChild(el("div", { class: "cmphead" }, [
+    document.createTextNode(c.tcid + " "), el("span", { class: "small", text: "knowledge base" })
+  ]));
+  grid.appendChild(el("div", { class: "cmphead" }, [
+    document.createTextNode("This draft "), el("span", { class: "small", text: techName(d.technique, d.lang || "en") })
+  ]));
+
+  let differing = 0;
+  const pair = (label, a, b) => {
+    const big = String(a || "").length * String(b || "").length > DIFF_BUDGET;
+    const dw = big ? null : diffWords(a, b);
+    const same = big ? clean(a) === clean(b) : dw.same;
+    if (!same) differing++;
+    grid.appendChild(el("div", { class: "cmplabel" + (same ? "" : " differs"),
+      text: label + (same ? "" : " — differs") }));
+    grid.appendChild(dw ? diffNode(dw.left) : el("div", { class: "cmpfield", text: clean(a) || "—" }));
+    grid.appendChild(dw ? diffNode(dw.right) : el("div", { class: "cmpfield", text: clean(b) || "—" }));
+  };
+
+  pair("Name", c.name, d.name);
+  pair("Module", c.path || c.module, d.path || d.module);
+  pair("Type", c.type, d.type);
+  pair("Priority", c.priority, d.priority);
+  pair("Precondition", c.precondition, d.precondition);
+  const n = Math.max(c.steps.length, d.steps.length);
+  for (let i = 0; i < n; i++) {
+    const A = c.steps[i] || { action: "", expected: "" };
+    const B = d.steps[i] || { action: "", expected: "" };
+    pair("Step " + (i + 1) + " · action", A.action, B.action);
+    pair("Step " + (i + 1) + " · expected", A.expected, B.expected);
+  }
+  p.appendChild(grid);
+  p.appendChild(el("p", { class: "small", text: differing
+    ? differing + (differing === 1 ? " field differs" : " fields differ") + " out of " + (5 + n * 2) +
+      ". Steps are lined up by position, so one inserted step colours everything after it."
+    : "Every field is identical. This draft adds nothing the archive does not already hold." }));
 }
 
 /* ------------------------------------------------------- stage: coverage */
