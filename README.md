@@ -208,6 +208,44 @@ Where it shows:
 - **A draft in Review** — the score in the header, and *"3 things this case is still
   missing"* folded open beneath it, so the fix is next to the field that needs it.
 
+## What it writes, and what it copies
+
+It is a scaffolder, not an author, and the app now says so in its own numbers rather than
+leaving you to guess.
+
+The analysis runs on import and takes about a millisecond, because it is word statistics
+and pattern matching — there is no language model anywhere in this file. **What was read
+from your archive** on the Knowledge Base stage is the whole of it: the naming pattern, the
+steps your cases repeat and in what share of them, the values your fields carry, the
+language, the shape. Everything a generated case inherits comes from that list.
+
+On the sample archive the split comes out like this:
+
+| | |
+|---|---|
+| steps copied from the archive word for word | 32 of 59 |
+| steps taken from an acceptance criterion | 20 |
+| steps written by the tool around a criterion | 7 |
+| expected results the ticket actually stated | 9 |
+
+So roughly **two steps in three are carried across, one is the criterion rephrased.** That
+is the design — your opening and closing steps, your field values and your naming are
+exactly what you want repeated — but it is worth seeing rather than assuming.
+
+**Every step carries its mark**, and every card says how many of each it holds:
+
+| Mark | Means |
+|---|---|
+| `⧉` | copied from the archive word for word, with the case it came from |
+| `◆` | taken from the acceptance criterion, with which one |
+| `✎` | written by the tool around the criterion |
+
+A card also names its template and its match score, and says outright when that score is
+**too weak to borrow its precondition**. A precondition is a claim about the state of the
+system: lifting one off a case that is 15% like this requirement states something false
+with confidence, which is worse than stating something general and true. Below 30% the tool
+writes its own, on both the per-criterion and the end-to-end path.
+
 ## The problem it solves
 
 Every release you get a set of Jira stories and you need test cases in qTest for them.

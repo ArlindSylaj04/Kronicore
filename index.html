@@ -57,6 +57,9 @@
 }
 
 *{box-sizing:border-box}
+/* A class that sets display beats the browser's own [hidden] rule, so anything
+   given display:flex stays on screen while hidden. This settles it once. */
+[hidden]{display:none !important}
 body{
   margin:0; background:var(--bg); color:var(--text);
   font-family:var(--sans); font-size:15px; line-height:1.5;
@@ -458,6 +461,16 @@ del.d{background:var(--crit-soft); color:var(--crit); border-radius:3px; padding
 .dgroup:not([open])>summary .tw::after{content:"\25b8"}
 .dgroup>summary .gname{font-weight:600; flex:1 1 200px; min-width:0}
 .dgroup .gbody{display:flex; flex-direction:column; gap:12px; padding:12px}
+/* ---------- where a line came from ---------- */
+.provrow{display:flex; flex-wrap:wrap; gap:7px; align-items:center;
+  padding:7px 10px; border-radius:7px; background:var(--surface-3); border:1px solid var(--line-soft)}
+.provmark{display:block; font-size:10px; line-height:1; margin-top:3px; text-align:center}
+.provmark.p-arc{color:var(--accent)}
+.provmark.p-ac{color:var(--text); opacity:.55}
+.provmark.p-tool{color:var(--warn)}
+.provkey{display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--muted)}
+.provkey span b{font-weight:400; color:var(--text)}
+
 .draft.compact>.body{display:none}
 /* a folded card that wraps onto two lines is not a folded card */
 .draft.compact>header{flex-wrap:nowrap; overflow:hidden}
@@ -1488,7 +1501,8 @@ function deriveConventions() {
     .map(([k, n]) => {
       const src = A.find(c => c.steps.some(s => stepKey(s) === k));
       const step = src && src.steps.find(s => stepKey(s) === k);
-      return { action: step ? step.action : k, expected: step ? step.expected : "", share: n / A.length, count: n };
+      return { action: step ? step.action : k, expected: step ? step.expected : "",
+               tcid: src ? src.tcid : "", share: n / A.length, count: n };
     });
 
   // naming convention
@@ -1887,6 +1901,7 @@ function depthCount(d) {
 }
 
 /* ------------------------------------------------------------ generation */
+const PRECOND_MIN = 0.30;   // below this the template's precondition is not carried over
 const TRIGGER_SPLIT = /\s+(?:then|so that|results in|führt zu|fuehrt zu|,\s*dann|dann|→|->|=>)\s+/i;
 const WHEN_LEAD = /^(when|if|once|as soon as|wenn|falls|sobald|nachdem)\b[\s:]+/i;
 // Only strips a lead-in when the modal verb is actually there, so a plain sentence survives intact.
@@ -1970,6 +1985,10 @@ function generateFor(req) {
     : matches[0];
   const template = chosen && chosen.score >= S.gen.minScore ? chosen.tc : null;
   const templateScore = chosen ? chosen.score : 0;
+  // A precondition is a claim about the state of the system. Lifting one off a
+  // case that is only 15% like this requirement states something false with
+  // confidence, which is worse than saying something general and true.
+  const trustTemplate = templateScore >= PRECOND_MIN;
 
   const module = (template && template.module) || clean(req.components.split(",")[0]) || (conv.modules && conv.modules[0]) || "";
   const extra = {};
@@ -1993,15 +2012,20 @@ function generateFor(req) {
 
   const preamble = (S.gen.usePreamble && conv.preamble) ? conv.preamble : [];
   const epilogue = (S.gen.useEpilogue && conv.epilogue) ? conv.epilogue : [];
-  const pre = () => preamble.map(s => ({ action: s.action, expected: s.expected, origin: "archive" }));
-  const post = () => epilogue.map(s => ({ action: s.action, expected: s.expected, origin: "archive" }));
+  // Provenance: a step is either lifted out of the archive word for word, taken
+  // from a criterion, or written by the tool. Saying which is the difference
+  // between a draft you can trust and one you have to re-read from scratch.
+  const pre = () => preamble.map(s => ({ action: s.action, expected: s.expected,
+    origin: "archive", src: "archive", srcRef: s.tcid || "", expSrc: "archive" }));
+  const post = () => epilogue.map(s => ({ action: s.action, expected: s.expected,
+    origin: "archive", src: "archive", srcRef: s.tcid || "", expSrc: "archive" }));
 
   const nameOf = (title, type) => applyNamePattern(S.gen.namePattern || conv.namePattern, {
     prefix: conv.prefix, module: module, area: area, req: req.key, type: type, title: title
   });
 
   const out = [];
-  const precondFromTemplate = template ? template.precondition : "";
+  const precondFromTemplate = (template && trustTemplate) ? template.precondition : "";
 
   req.ac.forEach((ac, i) => {
     const step = acToStep(ac, lang);
@@ -2020,7 +2044,9 @@ function generateFor(req) {
         needsWording: !step.complete,
         steps: pre().concat([{
           action: step.action,
-          expected: step.expected || L.expFallback(acLabel)
+          expected: step.expected || L.expFallback(acLabel),
+          src: "ac", srcRef: acLabel,
+          expSrc: step.expected ? "ac" : "generic"
         }]).concat(post())
       })));
     }
@@ -2036,7 +2062,8 @@ function generateFor(req) {
         needsWording: true,
         steps: pre().concat([{
           action: step.action + L.actNegative,
-          expected: L.expNegative
+          expected: L.expNegative,
+          src: "tool", srcRef: acLabel, expSrc: "generic"
         }]).concat(post())
       })));
     }
@@ -2051,7 +2078,8 @@ function generateFor(req) {
         description: L.descBoundary(req.key, acLabel, b.join(", ")),
         precondition: precondFromTemplate || L.defaultPre(module, req.key),
         needsWording: !b.length,
-        steps: pre().concat(boundarySteps(step, b, lang)).concat(post())
+        steps: pre().concat(boundarySteps(step, b, lang).map(x =>
+          Object.assign(x, { src: "tool", srcRef: acLabel, expSrc: "generic" }))).concat(post())
       })));
     }
 
@@ -2065,8 +2093,10 @@ function generateFor(req) {
         precondition: L.preRoles(acLabel),
         needsWording: true,
         steps: pre().concat([
-          { action: L.actRoleOk(acLabel, step.action), expected: step.expected || L.expRoleOk },
-          { action: L.actRoleNo(acLabel), expected: L.expRoleNo }
+          { action: L.actRoleOk(acLabel, step.action), expected: step.expected || L.expRoleOk,
+            src: "tool", srcRef: acLabel, expSrc: step.expected ? "ac" : "generic" },
+          { action: L.actRoleNo(acLabel), expected: L.expRoleNo,
+            src: "tool", srcRef: acLabel, expSrc: "generic" }
         ]).concat(post())
       })));
     }
@@ -2076,20 +2106,25 @@ function generateFor(req) {
     const e2eTemplate = S.archive
       .map(tc => ({ tc, s: scoreMatch(req, tc) + (/e2e|end.?to.?end|integration|prozess|process|ablauf/i.test(tc.type + " " + tc.name) ? 0.25 : 0) }))
       .sort((a, b) => b.s - a.s)[0];
+    // Its own template, so its own score and its own threshold: the bonus that
+    // favours an end-to-end case must not smuggle a weak match past the gate.
     const tpl = e2eTemplate ? e2eTemplate.tc : null;
+    const tplScore = e2eTemplate ? Math.min(1, e2eTemplate.s) : 0;
     out.push(newDraft(Object.assign({}, base, {
       name: nameOf(shortTitle(req.summary) + L.sufE2E, "E2E"),
       type: pickType(conv, "e2e", lang),
       technique: "uc",
       acRef: "AC1–AC" + req.ac.length,
       description: L.descE2E(req.key, clean(req.summary)),
-      precondition: (tpl && tpl.precondition) || L.defaultPre(module, req.key),
+      precondition: (tpl && tplScore >= PRECOND_MIN && tpl.precondition) || L.defaultPre(module, req.key),
       templateId: tpl ? tpl.tcid : base.templateId,
       templateName: tpl ? tpl.name : base.templateName,
+      templateScore: tpl ? Math.round(tplScore * 100) : base.templateScore,
       needsWording: false,
       steps: pre().concat(req.ac.map((ac, i) => {
         const s = acToStep(ac, lang);
-        return { action: s.action, expected: s.expected || L.expE2E("AC" + (i + 1), ac.text) };
+        return { action: s.action, expected: s.expected || L.expE2E("AC" + (i + 1), ac.text),
+                 src: "ac", srcRef: "AC" + (i + 1), expSrc: s.expected ? "ac" : "generic" };
       })).concat(post())
     })));
   }
@@ -2645,29 +2680,54 @@ function viewArchive(p) {
     ])
   ]));
 
-  const convCard = el("div", { class: "card" }, [el("h3", { text: "Conventions read from your archive" })]);
-  if (!S.conventions) convCard.appendChild(el("p", { class: "small", text: "Import test cases and the app will read your naming pattern, standard steps and field values out of them." }));
-  else {
+  const convCard = el("div", { class: "card" }, [
+    el("h3", { text: "What was read from your archive" }),
+    el("p", { class: "card-sub", text: "This is the whole of the analysis — it runs in a few milliseconds on import, because it is word statistics and pattern matching, not a language model. Everything a generated case inherits comes from this list." })
+  ]);
+  if (!S.conventions) {
+    convCard.appendChild(el("p", { class: "small", text: "Import test cases and this fills in: the naming pattern, the steps your cases repeat, the values your fields carry, and the language they are written in." }));
+  } else {
     const c = S.conventions;
     const list = el("div", { class: "stack" });
-    list.appendChild(el("div", { class: "row" }, [
-      el("span", { class: "chip accent", text: "language: " + (LANG_LABEL[c.lang] || c.lang) }),
-      el("span", { class: "chip mono accent", text: "naming: " + c.namePattern }),
-      el("span", { class: "chip mono", text: "default type: " + (c.defaultType || "–") }),
-      el("span", { class: "chip mono", text: "default priority: " + (c.defaultPriority || "–") }),
-      el("span", { class: "chip mono", text: "ø " + c.avgSteps + " steps/case" })
-    ]));
-    if (c.preamble.length) list.appendChild(el("p", { class: "small", html: "<strong>Standard opening steps</strong> found in your archive — reused in every generated case:" }));
-    c.preamble.forEach(s => list.appendChild(el("div", { class: "matchrow" }, [
-      el("span", { class: "nm", text: s.action }),
-      el("span", { class: "score", text: Math.round(s.share * 100) + "% of cases" })
-    ])));
-    if (c.epilogue.length) list.appendChild(el("p", { class: "small", html: "<strong>Standard closing step</strong>:" }));
-    c.epilogue.forEach(s => list.appendChild(el("div", { class: "matchrow" }, [
-      el("span", { class: "nm", text: s.action }),
-      el("span", { class: "score", text: Math.round(s.share * 100) + "% of cases" })
-    ])));
+
+    const line = (what, value, note) => el("div", { class: "matchrow" }, [
+      el("span", { class: "small", style: "flex:0 0 150px", text: what }),
+      el("span", { class: "nm", text: value }),
+      note ? el("span", { class: "score", text: note }) : null
+    ].filter(Boolean));
+
+    list.appendChild(line("Naming pattern", c.namePattern, "every new case"));
+    list.appendChild(line("Language", LANG_LABEL[c.lang] || c.lang, "read from the text"));
+    c.preamble.forEach(x => list.appendChild(line("Opening step", x.action,
+      Math.round(x.share * 100) + "% of cases" + (x.tcid ? " · e.g. " + x.tcid : ""))));
+    if (!c.preamble.length) list.appendChild(line("Opening step", "— none repeated often enough", "needs 35% and 3 cases"));
+    c.epilogue.forEach(x => list.appendChild(line("Closing step", x.action,
+      Math.round(x.share * 100) + "%" + (x.tcid ? " · e.g. " + x.tcid : ""))));
+    list.appendChild(line("Field values", "type " + (c.defaultType || "–") + " · priority " +
+      (c.defaultPriority || "–") + " · status " + (c.defaultStatus || "–"), "most common"));
+    (c.extra || []).filter(f => f.fill >= 0.2).forEach(f => list.appendChild(
+      line("Project field", f.name + " → “" + f.top + "”", Math.round(f.fill * 100) + "% filled")));
+    list.appendChild(line("Shape", c.avgSteps + " steps per case · " +
+      (c.modules || []).length + " modules · " + (c.types || []).length + " types", "across " + S.archive.length + " cases"));
     convCard.appendChild(list);
+
+    convCard.appendChild(el("div", { class: "note warn", style: "margin-top:12px", html:
+      "<strong>What this does and does not write.</strong><br>" +
+      "From the list above a generated case inherits its name, its opening and closing steps, its field values and its place in the tree — all of that is carried across word for word. " +
+      "What the tool writes itself is one step per acceptance criterion, rephrased from the ticket, and an expected result <em>only where the ticket states one</em>. " +
+      "Where it does not, the sentence is a placeholder and the case is flagged <strong>needs wording</strong>. " +
+      "The test design is still yours; what is automated is the eight things around it." }));
+
+    convCard.appendChild(el("div", { class: "provkey", style: "margin-top:10px" }, [
+      el("span", {}, [el("b", { class: "provmark p-arc", style: "display:inline", text: PROV.archive.mark }),
+        document.createTextNode(" " + PROV.archive.label)]),
+      el("span", {}, [el("b", { class: "provmark p-ac", style: "display:inline", text: PROV.ac.mark }),
+        document.createTextNode(" " + PROV.ac.label)]),
+      el("span", {}, [el("b", { class: "provmark p-tool", style: "display:inline", text: PROV.tool.mark }),
+        document.createTextNode(" " + PROV.tool.label)])
+    ]));
+    convCard.appendChild(el("p", { class: "small", style: "margin-top:6px",
+      text: "Every step of every draft carries one of those three marks, and each card says how many of each it holds." }));
   }
 
   if (isSap()) {
@@ -2677,7 +2737,7 @@ function viewArchive(p) {
         el("h3", { text: "The system under test", style: "margin:0" }),
         el("span", { style: "margin-left:auto" }),
         el("span", { class: "chip accent", text: PLATFORM_LABEL[platform()] +
-          (S.gen.platform === "auto" ? " \u00b7 detected" : " \u00b7 set by you") })
+          (S.gen.platform === "auto" ? " · detected" : " · set by you") })
       ]),
       el("p", { class: "card-sub", style: "margin-top:8px", text: codes.length
         ? "Transaction codes read out of your own archive and tickets. Where a ticket names one, the generated steps call it by code and the SAP angles on that ticket are shaped around it."
@@ -2686,11 +2746,11 @@ function viewArchive(p) {
     if (codes.length) {
       sapCard.appendChild(el("div", { class: "row" }, codes.slice(0, 24).map(t => el("span", {
         class: "chip mono" + (t.what ? " accent" : ""),
-        title: (t.what ? t.what + " \u2014 " : "") + "named " + t.n + (t.n === 1 ? " time" : " times")
-      }, t.code + " \u00b7 " + t.n))));
+        title: (t.what ? t.what + " — " : "") + "named " + t.n + (t.n === 1 ? " time" : " times")
+      }, t.code + " · " + t.n))));
       const known = codes.filter(t => t.what).length;
       sapCard.appendChild(el("p", { class: "small", style: "margin-top:8px",
-        text: codes.length + " distinct codes, " + known + " of them in the public SAP reference the app carries. The rest are yours \u2014 they are used as written, never guessed at." }));
+        text: codes.length + " distinct codes, " + known + " of them in the public SAP reference the app carries. The rest are yours — they are used as written, never guessed at." }));
     }
     p.appendChild(sapCard);
   }
@@ -4151,6 +4211,9 @@ function draftCard(d, conv) {
   pre.addEventListener("input", e => { d.precondition = e.target.value; d.needsWording = false; save(); });
   body.appendChild(el("label", { class: "field" }, [el("span", { text: "Precondition" }), pre]));
 
+  const prov = provRow(d);
+  if (prov) body.appendChild(prov);
+
   const tw = el("div", { class: "tablewrap" });
   const t = el("table", { class: "steps" });
   t.appendChild(el("thead", {}, el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Action" }), el("th", { text: "Expected result" }), el("th", { class: "acts", text: "" })])));
@@ -4164,8 +4227,13 @@ function draftCard(d, conv) {
       class: "stepbtn " + (cls || ""), type: "button", title: title,
       disabled: off ? "" : null, onclick: fn
     }, glyph);
+    const pr = provOf(s);
     tb.appendChild(el("tr", {}, [
-      el("td", { class: "id", text: String(i + 1) }),
+      el("td", { class: "id" }, [
+        document.createTextNode(String(i + 1)),
+        el("span", { class: "provmark " + pr.cls,
+          title: pr.label + (s.srcRef ? " (" + s.srcRef + ")" : "") }, pr.mark)
+      ]),
       el("td", {}, a),
       el("td", {}, x),
       el("td", { class: "acts" }, [
@@ -4366,6 +4434,50 @@ function showCompare(d, wanted) {
     ? differing + (differing === 1 ? " field differs" : " fields differ") + " out of " + (5 + n * 2) +
       ". Steps are lined up by position, so one inserted step colours everything after it."
     : "Every field is identical. This draft adds nothing the archive does not already hold." }));
+}
+
+/* ---- where every line of a draft came from -------------------------------- */
+/* The tool carries conventions across and turns a criterion into a step. It is
+   a scaffolder, not an author, and a draft that does not say which of its lines
+   are borrowed is a draft you have to re-read from scratch to trust. */
+const PROV = {
+  archive: { mark: "⧉", label: "copied from the archive word for word", cls: "p-arc" },
+  ac:      { mark: "◆", label: "taken from the acceptance criterion",    cls: "p-ac" },
+  tool:    { mark: "✎", label: "written by the tool around the criterion", cls: "p-tool" },
+  generic: { mark: "✎", label: "a generic sentence, because the criterion never said what to expect", cls: "p-tool" }
+};
+const provOf = s => PROV[s && s.src] || PROV.tool;
+
+function provSummary(d) {
+  const n = { archive: 0, ac: 0, tool: 0 };
+  const exp = { archive: 0, ac: 0, generic: 0 };
+  (d.steps || []).forEach(s => {
+    n[(s.src === "archive" || s.src === "ac") ? s.src : "tool"]++;
+    const e = s.expSrc === "archive" || s.expSrc === "ac" ? s.expSrc : "generic";
+    if (clean(s.expected)) exp[e]++;
+  });
+  return { steps: n, exp: exp, total: (d.steps || []).length };
+}
+
+function provRow(d) {
+  const p = provSummary(d);
+  if (!p.total) return null;
+  const from = uniq((d.steps || []).filter(s => s.src === "archive" && s.srcRef).map(s => s.srcRef));
+  const bits = [];
+  if (p.steps.archive) bits.push(p.steps.archive + " copied" + (from.length ? " from " + from.join(", ") : ""));
+  if (p.steps.ac) bits.push(p.steps.ac + " from the criterion");
+  if (p.steps.tool) bits.push(p.steps.tool + " written by the tool");
+  const genericExp = p.exp.generic;
+  return el("div", { class: "provrow" }, [
+    el("span", { class: "chip mono", text: p.total + (p.total === 1 ? " step" : " steps") }),
+    el("span", { class: "small", text: bits.join(" · ") }),
+    genericExp ? el("span", { class: "chip warn",
+      title: "The ticket never said what to expect here, so the sentence is a placeholder",
+      text: genericExp + (genericExp === 1 ? " expected result is generic" : " expected results are generic") }) : null,
+    d.templateId ? el("span", { class: "small", style: "margin-left:auto",
+      text: "template " + d.templateId + " · " + d.templateScore + "%" +
+        (d.templateScore < Math.round(PRECOND_MIN * 100) ? " — too weak to borrow its precondition" : "") }) : null
+  ].filter(Boolean));
 }
 
 /* ------------------------------------------------------- stage: coverage */
@@ -5143,11 +5255,13 @@ function loadSample(which) {
   TCODES = null;
   buildIdf(); deriveConventions();
   runGeneration();
-  S.stage = sap ? "requirements" : "review";
+  // Landing on Review hid the two stages that explain it: what was read from
+  // the archive, and how each ticket was matched against it.
+  S.stage = "archive";
   save(); renderAll();
   toast(sap
-    ? "SAP sample loaded \u2014 an invented wholesaler's SD, MM and FI cases with their transaction codes, and two tickets. Open a ticket to see the SAP angles."
-    : "Sample project loaded \u2014 a German qTest archive, the three tickets it was written for, three new ones, and the drafts they produce.");
+    ? "SAP sample loaded \u2014 start here to see what was read from the archive, then walk the stages. " + S.drafts.length + " drafts are already waiting in Review."
+    : "Sample project loaded \u2014 start here to see what was read from the archive, then walk the stages. " + S.drafts.length + " drafts are already waiting in Review.");
 }
 
 /* A collapsed requirement would print as a bare heading, so paper gets all
