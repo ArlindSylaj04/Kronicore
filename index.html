@@ -468,6 +468,7 @@ del.d{background:var(--crit-soft); color:var(--crit); border-radius:3px; padding
 .provmark.p-arc{color:var(--accent)}
 .provmark.p-ac{color:var(--text); opacity:.55}
 .provmark.p-tool{color:var(--warn)}
+.provmark.p-unknown{color:var(--faint)}
 .provkey{display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--muted)}
 .provkey span b{font-weight:400; color:var(--text)}
 
@@ -2454,20 +2455,34 @@ function draftFromArchiveCase(c) {
     templateScore: 100,
     origin: "archive",
     extra: Object.assign({}, c.extra),
-    steps: c.steps.map(s => ({ action: s.action, expected: s.expected }))
+    // nothing here is written by anyone: it is that case, carried over whole
+    steps: c.steps.map(s => ({ action: s.action, expected: s.expected,
+      src: "archive", srcRef: c.tcid, expSrc: "archive" }))
   });
 }
 
-function convertArchiveCases(list) {
+const CONVERT_CAP = 500;   // a conversion this size is already a migration job
+
+/* Converting is the other direction through this tool: cases that already exist
+   in qTest, read out and written into a different shape. It has to set the
+   destination it names, or the Export stage quietly writes the wrong file. */
+function convertArchiveCases(list, target) {
   if (!list.length) { toast("Nothing to convert."); return; }
   const have = {};
   S.drafts.forEach(d => { if (fromArchive(d)) have[d.templateId] = true; });
-  const fresh = list.filter(c => !have[c.tcid]).map(draftFromArchiveCase);
-  if (!fresh.length) { toast("Those cases are already in Review."); return; }
+  const capped = list.slice(0, CONVERT_CAP);
+  const fresh = capped.filter(c => !have[c.tcid]).map(draftFromArchiveCase);
+  if (!fresh.length) { toast("Those cases have already been converted \u2014 they are in Review."); return; }
+  pushUndo("converting " + fresh.length + " case" + (fresh.length === 1 ? "" : "s"));
   S.drafts = S.drafts.concat(fresh);
-  S.stage = "review";
-  save(); renderAll();
-  toast(fresh.length + " manual case" + (fresh.length === 1 ? "" : "s") + " carried over — review, then export as a Tosca spec.");
+  if (target) S.gen.target = target;
+  flagDuplicates();
+  save();
+  goto("review", { draftFlag: "converted" });
+  const where = S.gen.target === "tosca" ? "a Tosca specification"
+    : S.gen.target === "both" ? "both a qTest file and a Tosca specification" : "a qTest file";
+  toast(fresh.length + " case" + (fresh.length === 1 ? "" : "s") + " converted \u2014 review them, then Export writes " + where +
+    (list.length > CONVERT_CAP ? ". Only the first " + CONVERT_CAP + " of " + list.length + " were taken." : "."));
 }
 
 function copyText(text) {
@@ -2965,13 +2980,69 @@ function viewArchive(p) {
                      onclick: () => { S.filters.archiveHealth = ""; renderAll(); } }, "\u00d7")
     ]) : null,
     el("span", { class: "small", id: "arc-count" }),
-    el("button", { class: "btn sm", type: "button", onclick: () => convertArchiveCases(shownArchive().slice(0, 200)) }, "Carry shown over to Review"),
+    el("button", { class: "btn sm", type: "button", title: "Jump to Convert, which works on whatever is shown here",
+      onclick: () => { const t = document.getElementById("convert"); if (t) t.scrollIntoView({ behavior: "smooth", block: "center" }); } }, "Convert these\u2026"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("removing every test case"); S.archive = []; S.conventions = null; S.archiveHeaders = null; save(); renderAll(); } }, "Remove every test case")
   ]);
   p.appendChild(bar);
   const wrap = el("div", { class: "tablewrap", id: "arc-table" });
   p.appendChild(wrap);
   renderArchiveTable();
+  p.appendChild(convertCard());
+}
+
+/* The other direction through this tool: cases that already exist in qTest,
+   read out and written into a different shape. It works on whatever the
+   filters above are showing, so a module or a health band is a conversion
+   batch without any extra selection mechanism. */
+function convertCard() {
+  if (!S.archive.length) return document.createDocumentFragment();
+  const shown = shownArchive();
+  const already = {};
+  S.drafts.forEach(d => { if (fromArchive(d)) already[d.templateId] = true; });
+  const fresh = shown.filter(c => !already[c.tcid]).length;
+  const done = shown.length - fresh;
+
+  const card = el("div", { class: "card", id: "convert" }, [
+    el("div", { class: "row" }, [
+      el("h3", { text: "Convert existing cases", style: "margin:0" }),
+      el("span", { style: "margin-left:auto" }),
+      el("span", { class: "chip mono", text: shown.length + " shown by your filters" }),
+      done ? el("span", { class: "chip good mono", text: done + " already converted" }) : null
+    ].filter(Boolean)),
+    el("p", { class: "card-sub", style: "margin-top:8px", text:
+      "Cases you already have in qTest, carried over whole \u2014 steps, precondition, module, project fields \u2014 and written out in another shape. " +
+      "Narrow the table above to the batch you want: a module, a branch of the tree, a health band, a search." })
+  ]);
+
+  const sel = el("select", { id: "convert-target", style: "width:auto;min-width:220px" }, [
+    el("option", { value: "tosca", text: "Tosca \u2014 automation specification", selected: S.gen.target === "tosca" }),
+    el("option", { value: "qtest", text: "qTest \u2014 back out as manual cases", selected: S.gen.target === "qtest" }),
+    el("option", { value: "both", text: "Both files", selected: S.gen.target === "both" })
+  ]);
+
+  card.appendChild(el("div", { class: "filterbar", style: "margin-top:4px" }, [
+    el("label", { class: "field", style: "flex-direction:row;align-items:center;gap:7px" }, [
+      el("span", { text: "Into" }), sel
+    ]),
+    el("button", {
+      class: "btn primary sm", type: "button", disabled: fresh ? null : "",
+      title: fresh ? "Carry them into Review, then Export writes the file" : "Everything shown has already been converted",
+      onclick: () => convertArchiveCases(shown, sel.value)
+    }, fresh ? "Convert " + fresh + " case" + (fresh === 1 ? "" : "s") : "Nothing left to convert"),
+    done ? el("button", { class: "btn sm", type: "button",
+      onclick: () => goto("review", { draftFlag: "converted" }) }, "See the converted ones") : null
+  ].filter(Boolean)));
+
+  if (shown.length > CONVERT_CAP) card.appendChild(el("p", { class: "small", style: "margin-top:8px",
+    text: "The first " + CONVERT_CAP + " are taken in one go. Convert those, narrow the filter, and take the next batch." }));
+
+  card.appendChild(el("div", { class: "note", style: "margin-top:10px", html:
+    "<strong>What a conversion is and is not.</strong><br>" +
+    "Every field and every step is carried over word for word \u2014 nothing is rewritten. For Tosca the prose of each step is then read into " +
+    "module, control, ActionMode and value, which is the part worth checking: it is a reading of your wording, and your wording was written for a human. " +
+    "The Export stage says which columns are still provisional." }));
+  return card;
 }
 
 /* Old projects come in under their own names; this is where they are placed in
@@ -3843,7 +3914,7 @@ function viewReview(p) {
 
   const FLAG_LABEL = {
     needsWording: "needs wording", duplicate: "close to an archived case",
-    approved: "approved", open: "not yet approved"
+    approved: "approved", open: "not yet approved", converted: "converted from the knowledge base"
   };
   if (draftFilterOn()) {
     const pills = el("div", { class: "pills" }, [el("span", { class: "small", text: "Showing only:" })]);
@@ -3972,6 +4043,7 @@ function shownDrafts() {
     if (f.draftFlag === "duplicate" && !d.similar) return false;
     if (f.draftFlag === "approved" && d.review !== "approved") return false;
     if (f.draftFlag === "open" && d.review !== "draft") return false;
+    if (f.draftFlag === "converted" && !fromArchive(d)) return false;
     if (q && (d.name + " " + d.requirement + " " + d.technique).toLowerCase().indexOf(q) < 0) return false;
     return true;
   });
@@ -4444,17 +4516,18 @@ const PROV = {
   archive: { mark: "⧉", label: "copied from the archive word for word", cls: "p-arc" },
   ac:      { mark: "◆", label: "taken from the acceptance criterion",    cls: "p-ac" },
   tool:    { mark: "✎", label: "written by the tool around the criterion", cls: "p-tool" },
-  generic: { mark: "✎", label: "a generic sentence, because the criterion never said what to expect", cls: "p-tool" }
+  generic: { mark: "✎", label: "a generic sentence, because the criterion never said what to expect", cls: "p-tool" },
+  unknown: { mark: "·", label: "not recorded — this draft predates provenance tracking", cls: "p-unknown" }
 };
-const provOf = s => PROV[s && s.src] || PROV.tool;
+const provOf = s => (s && PROV[s.src]) || PROV.unknown;
 
 function provSummary(d) {
-  const n = { archive: 0, ac: 0, tool: 0 };
+  const n = { archive: 0, ac: 0, tool: 0, unknown: 0 };
   const exp = { archive: 0, ac: 0, generic: 0 };
   (d.steps || []).forEach(s => {
-    n[(s.src === "archive" || s.src === "ac") ? s.src : "tool"]++;
-    const e = s.expSrc === "archive" || s.expSrc === "ac" ? s.expSrc : "generic";
-    if (clean(s.expected)) exp[e]++;
+    n[s.src === "archive" || s.src === "ac" || s.src === "tool" ? s.src : "unknown"]++;
+    if (!clean(s.expected)) return;
+    exp[s.expSrc === "archive" || s.expSrc === "ac" ? s.expSrc : "generic"]++;
   });
   return { steps: n, exp: exp, total: (d.steps || []).length };
 }
@@ -4467,10 +4540,14 @@ function provRow(d) {
   if (p.steps.archive) bits.push(p.steps.archive + " copied" + (from.length ? " from " + from.join(", ") : ""));
   if (p.steps.ac) bits.push(p.steps.ac + " from the criterion");
   if (p.steps.tool) bits.push(p.steps.tool + " written by the tool");
+  if (p.steps.unknown) bits.push(p.steps.unknown + " not recorded");
   const genericExp = p.exp.generic;
+  const allCopied = p.steps.archive === p.total && p.total > 0;
   return el("div", { class: "provrow" }, [
     el("span", { class: "chip mono", text: p.total + (p.total === 1 ? " step" : " steps") }),
-    el("span", { class: "small", text: bits.join(" · ") }),
+    el("span", { class: "small", text: allCopied
+      ? "carried over whole — nothing on this card was written by the tool"
+      : bits.join(" · ") }),
     genericExp ? el("span", { class: "chip warn",
       title: "The ticket never said what to expect here, so the sentence is a placeholder",
       text: genericExp + (genericExp === 1 ? " expected result is generic" : " expected results are generic") }) : null,
@@ -4833,7 +4910,8 @@ function showArchiveCase(c) {
     el("h3", { text: c.name, title: c.name }),
     healthChip(h),
     el("button", { class: "btn primary sm", type: "button",
-      onclick: () => { closeOverlays(); convertArchiveCases([c]); } }, "Carry over to Review"),
+      title: "Carry this case over whole and write it out in the shape chosen under Convert",
+      onclick: () => { closeOverlays(); convertArchiveCases([c]); } }, "Convert this case"),
     el("button", { class: "btn ghost sm", type: "button", title: "Close (Esc)", onclick: closeOverlays }, "×")
   ]));
 

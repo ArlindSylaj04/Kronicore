@@ -385,6 +385,22 @@ translation rather than a choice:
 So a German archive with an English ticket produces a case with German framing around
 English criterion text — which is usually what you want while the two languages coexist.
 
+## Converting cases you already have
+
+The other direction through this tool. **Convert existing cases** on the Knowledge Base
+stage works on whatever the table above is showing, so a module, a branch of the tree, a
+health band or a search is a conversion batch without any extra selection mechanism. Pick
+the destination there — Tosca, qTest, or both — and it sets the Export stage to match,
+rather than naming a file it was not going to write.
+
+Every field and every step is carried over word for word; nothing is rewritten. A converted
+card says so: *carried over whole — nothing on this card was written by the tool*. What is
+worth checking is the Tosca reading underneath, which turns each step's prose into module,
+control, ActionMode and value — that is a reading of wording you wrote for a human.
+
+Cases already converted are counted separately and cannot be taken twice, five hundred go
+over in one batch, and one undo puts it all back. A single case converts from its drawer.
+
 ## Carrying manual cases over to Tosca
 
 A manual case that already exists in qTest does not need a requirement to be automated. On
