@@ -405,10 +405,29 @@ generator too, *Move into the knowledge base* does exactly that, with an undo.
 Pick the destination there — Tosca, qTest, or both — and it sets the Export stage to match,
 rather than naming a file it was not going to write.
 
-Every field and every step is carried over word for word; nothing is rewritten. A converted
-card says so: *carried over whole — nothing on this card was written by the tool*. What is
-worth checking is the Tosca reading underneath, which turns each step's prose into module,
-control, ActionMode and value — that is a reading of wording you wrote for a human.
+**The copy is not the conversion.** Every field and every step is carried over word for
+word, so in Review a converted case looks exactly like the case you started with — and the
+card says so: *carried over whole, nothing on this card was written by the tool*. The
+conversion is what sits underneath it: **the Tosca reading**, which turns each step's prose
+into module, control, ActionMode and value.
+
+That reading is open by default on a converted card, and the Convert stage previews it on a
+real case before you commit a batch, because it is the only part worth reviewing. Edit a
+step and the reading follows it. Where a step names no field, button or screen, the line
+says so rather than inventing one.
+
+| Written step | Control | ActionMode | Value |
+|---|---|---|---|
+| Die ISBN 978-3-16-148410-0 eingeben und bestätigen | ISBN | Input | 978-3-16-148410-0 |
+| *(its expected result)* | Treffer | Verify | — |
+
+Reading German prose into four columns is where this earns or loses its keep, so three
+things it used to get wrong are worth naming. The keyword patterns need to be
+case-insensitive to catch both *Feld* and *feld*, and that insensitivity also let a
+lowercase word stand as a control — *Eingabefeld angezeigt* handed back `angezeigt`, and
+*Schaltfläche Katalogsuche anklicken und* handed back all three words. A control is now the
+capitalised run only. An identifier is one value, so `978-3-16-148410-0` no longer arrives
+as `978`. And quantifiers are not controls: *Genau ein Treffer* gives `Treffer`.
 
 Cases already converted are counted separately and cannot be taken twice, five hundred go
 over in one batch, and one undo puts it all back. A single case converts from its drawer.

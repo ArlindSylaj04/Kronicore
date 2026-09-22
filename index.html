@@ -2367,12 +2367,25 @@ function toscaPairs(line) {
   });
   return out;
 }
-const TOSCA_NOISE = /^(der|die|das|den|dem|des|ein|eine|einen|einem|einer|the|a|an|es|im|in|bei|mit|für|fuer|nach|von|vom|auf|aus|alle|kein|keine|und|oder|wird|werden|prüfen|pruefen|prüfung|kontrolle|aufrufen|auswahl|auswählen|auswaehlen|klick|klicken|eingeben|eingabe|öffnen|oeffnen|starten|anzeige|check|verify|open|select|click|enter|input|display)$/i;
+const TOSCA_NOISE = /^(der|die|das|den|dem|des|ein|eine|einen|einem|einer|the|a|an|es|im|in|bei|mit|für|fuer|nach|von|vom|auf|aus|alle|kein|keine|und|oder|wird|werden|prüfen|pruefen|prüfung|kontrolle|aufrufen|auswahl|auswählen|auswaehlen|klick|klicken|eingeben|eingabe|öffnen|oeffnen|starten|anzeige|check|verify|open|select|click|enter|input|display|genau|jede|jeder|jedes|jeweils|mindestens|höchstens|hoechstens|danach|dann|anschließend|anschliessend|sowie|beide|beim|zum|zur|dabei|daraufhin|erneut|wieder|exactly|each|every|then|again|both)$/i;
 
+const capitalised = x => /^[A-Z\u00c4\u00d6\u00dc]/.test(clean(x || ""));
+/* The hints allow up to four words after the keyword, and the /i they need for
+   "Feld" and "feld" also lets a lowercase word into that run. A control is the
+   capitalised run only: "Katalogsuche anklicken und" is one name and two words
+   of sentence. */
+function leadingCaps(phrase) {
+  const words = clean(phrase).split(/\s+/);
+  const kept = [];
+  for (let i = 0; i < words.length && capitalised(words[i]); i++) kept.push(words[i]);
+  return kept.join(" ");
+}
 function toscaControl(line) {
-  let m = line.match(TOSCA_CONTROL_HINT); if (m) return clean(m[1]);
+  // the hints are case-insensitive on the keyword but not on what follows it:
+  // a control is a named thing, and "Eingabefeld angezeigt" names nothing
+  let m = line.match(TOSCA_CONTROL_HINT); if (m && capitalised(m[1])) return leadingCaps(m[1]);
   m = line.match(TOSCA_QUOTED);           if (m) return clean(m[1]);
-  m = line.match(TOSCA_MODULE_HINT);      if (m) return clean(m[1]);
+  m = line.match(TOSCA_MODULE_HINT);      if (m && capitalised(m[1])) return leadingCaps(m[1]);
   // otherwise the first capitalised word that is not an article or the verb
   const words = line.match(/[A-ZÄÖÜ][\wÄÖÜäöüß-]{2,}/g) || [];
   for (let i = 0; i < words.length; i++) {
@@ -2388,7 +2401,8 @@ function toscaControl(line) {
 function toscaValue(line, mode) {
   const q = line.match(TOSCA_QUOTED);
   if (q) return clean(q[1]);
-  const num = line.match(/\b(\d+(?:[.,]\d+)?)\b/);
+  // an identifier is one value: 978-3-16-148410-0 and 100-200 come through whole
+  const num = line.match(/\b(\d[\d.,]*(?:[-\/]\d[\d.,]*)+|\d+(?:[.,]\d+)?)\b/);
   if (mode === "Input" && num) return num[1];
   return "";            // left for the engineer rather than inventing Tosca syntax
 }
@@ -2398,7 +2412,7 @@ function toscaValue(line, mode) {
 function toscaStepRows(step, ctx) {
   const rows = [];
   const mm = clean(step.action).match(TOSCA_MODULE_HINT);
-  if (mm) ctx.module = clean(mm[1]);
+  if (mm && capitalised(mm[1])) ctx.module = leadingCaps(mm[1]);
 
   const emit = (line, forced, fallback) => {
     const pairs = toscaPairs(line);
@@ -3154,6 +3168,47 @@ function renderArchiveTable() {
 
 function escapeHtml(s) { return esc(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
 
+/* The conversion is not the copy — the copy is just the case moving house. The
+   conversion is this: prose a person wrote, read into the four things Tosca
+   needs. Showing it where the case is reviewed is the difference between
+   "what did I convert?" and a sheet worth handing to an automation engineer. */
+function toscaFor(d) {
+  const ctx = { module: d.module || "" };
+  return (d.steps || []).map((st, i) => ({
+    n: i + 1, action: st.action, values: toscaStepRows(st, ctx)
+  }));
+}
+
+function toscaReading(d) {
+  const per = toscaFor(d);
+  const total = per.reduce((n, x) => n + x.values.length, 0);
+  if (!total) return null;
+  const box = el("details", { class: "raw", open: fromArchive(d) ? "" : null }, [
+    el("summary", { text: "Tosca reading — " + (d.steps || []).length +
+      " written steps become " + total + " TestStepValue" + (total === 1 ? "" : "s") })
+  ]);
+  box.appendChild(el("p", { class: "small", text:
+    "This is what the conversion produces. It is a reading of wording written for a person, so it is the part worth checking — fix the step above and this follows." }));
+  const tw = el("div", { class: "tablewrap", style: "margin-top:8px" });
+  const t = el("table", { class: "steps" });
+  t.appendChild(el("thead", {}, el("tr", {}, ["#", "Module", "Control", "ActionMode", "Value"].map(h =>
+    el("th", { text: h })))));
+  const tb = el("tbody");
+  per.forEach(x => x.values.forEach((v, j) => tb.appendChild(el("tr", {}, [
+    el("td", { class: "id", text: j === 0 ? String(x.n) : "" }),
+    el("td", { class: "small", text: v.module || "—" }),
+    el("td", { text: v.control || "—", title: v.source }),
+    el("td", {}, el("span", { class: "chip mono", text: v.mode })),
+    el("td", { class: "small", text: v.value || "—" })
+  ]))));
+  t.appendChild(tb); tw.appendChild(t);
+  box.appendChild(tw);
+  const blank = per.reduce((n, x) => n + x.values.filter(v => !v.control).length, 0);
+  if (blank) box.appendChild(el("p", { class: "small", style: "margin-top:8px",
+    text: blank + " line" + (blank === 1 ? "" : "s") + " gave up no control name — that step names no field, button or screen the reader could find." }));
+  return box;
+}
+
 /* ---------------------------------------------------------- stage: convert */
 /* Cases that already exist, read out and written into another shape. It is its
    own stage because it is its own job: nothing here teaches the generator, and
@@ -3272,7 +3327,8 @@ function viewConvert(p) {
   p.appendChild(wrap);
 
   /* ---- into what ---- */
-  const sel = el("select", { id: "convert-target", style: "width:auto;min-width:230px" }, [
+  const sel = el("select", { id: "convert-target", style: "width:auto;min-width:230px",
+    onchange: e => { S.gen.target = e.target.value; save(); renderAll(); } }, [
     el("option", { value: "tosca", text: "Tosca — automation specification", selected: S.gen.target === "tosca" }),
     el("option", { value: "qtest", text: "qTest — back out as manual cases", selected: S.gen.target === "qtest" }),
     el("option", { value: "both", text: "Both files", selected: S.gen.target === "both" })
@@ -3299,6 +3355,32 @@ function viewConvert(p) {
   ]);
   if (list.length > CONVERT_CAP) go.appendChild(el("p", { class: "small", style: "margin-top:8px",
     text: "The first " + CONVERT_CAP + " are taken in one go. Convert those, narrow the batch, take the next." }));
+  /* what the reading will look like, on a real case, before a batch is taken */
+  const sample = list.filter(c => c.steps.length)[0];
+  if (sample && sel.value !== "qtest") {
+    const probe = { module: sample.module, steps: sample.steps };
+    const per = toscaFor(probe);
+    const total = per.reduce((n, x) => n + x.values.length, 0);
+    const prev = el("details", { class: "raw", style: "margin-top:10px" }, [
+      el("summary", { text: "Preview the reading on " + sample.tcid + " \u2014 " +
+        sample.steps.length + " steps become " + total + " TestStepValues" })
+    ]);
+    const tw = el("div", { class: "tablewrap", style: "margin-top:8px" });
+    const t = el("table", { class: "steps" });
+    t.appendChild(el("thead", {}, el("tr", {}, ["#", "Written step", "Control", "ActionMode", "Value"].map(h =>
+      el("th", { text: h })))));
+    const tb = el("tbody");
+    per.forEach(x => x.values.forEach((v, j) => tb.appendChild(el("tr", {}, [
+      el("td", { class: "id", text: j === 0 ? String(x.n) : "" }),
+      el("td", { class: "small", text: j === 0 ? clean(x.action).slice(0, 64) : "" }),
+      el("td", { text: v.control || "\u2014" }),
+      el("td", {}, el("span", { class: "chip mono", text: v.mode })),
+      el("td", { class: "small", text: v.value || "\u2014" })
+    ]))));
+    t.appendChild(tb); tw.appendChild(t); prev.appendChild(tw);
+    go.appendChild(prev);
+  }
+
   go.appendChild(el("div", { class: "note", style: "margin-top:10px", html:
     "<strong>What a conversion is and is not.</strong><br>" +
     "Every field and every step is carried over word for word — nothing is rewritten, and each card says so. " +
@@ -4465,6 +4547,11 @@ function draftCard(d, conv) {
   });
   t.appendChild(tb); tw.appendChild(t);
   body.appendChild(tw);
+
+  if (S.gen.target !== "qtest") {
+    const tr = toscaReading(d);
+    if (tr) body.appendChild(tr);
+  }
 
   body.appendChild(el("div", { class: "row" }, [
     el("button", { class: "btn sm", type: "button", onclick: () => {
