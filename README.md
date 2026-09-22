@@ -261,15 +261,22 @@ This tool reads all of that out of the archive and applies it to the new require
 | # | Stage | What happens |
 |---|-------|--------------|
 | 1 | **Knowledge Base** | The test cases you have already written **and the requirements they were written for**, linked by issue key. Any export, any order, any column layout. Also where cases from old qTest projects are placed in the new module tree. |
-| 2 | **New Requirements** | Import a Jira CSV, XML or REST JSON export for this release. Acceptance criteria are split into individually testable items. |
-| 3 | **Match** | Two routes to a template: directly, requirement text against each archived case; and through history, requirement against each **past** requirement, then the cases that covered it. |
-| 4 | **Generate** | Each acceptance criterion produces the cases its ISTQB technique calls for. |
-| 5 | **Review** | Edit, add or remove steps, approve or drop. Nothing is final until you approve it. |
-| 6 | **Coverage** | What the release covers and what it does not, before any of it reaches qTest: a module × technique matrix, the gaps as a list, the technique mix, and an estimated run time. Printable. |
-| 7 | **Export** | qTest import CSV, one row per test step, plus a traceability matrix — and/or a Tosca automation spec. |
+| 2 | **Convert** | Cases that already exist, written out in another shape. Its own import, so a batch you only want as a Tosca spec never reaches the knowledge base. |
+| 3 | **New Requirements** | Import a Jira CSV, XML or REST JSON export for this release. Acceptance criteria are split into individually testable items. |
+| 4 | **Match** | Two routes to a template: directly, requirement text against each archived case; and through history, requirement against each **past** requirement, then the cases that covered it. |
+| 5 | **Generate** | Each acceptance criterion produces the cases its ISTQB technique calls for. |
+| 6 | **Review** | Edit, add or remove steps, approve or drop. Nothing is final until you approve it. |
+| 7 | **Coverage** | What the release covers and what it does not, before any of it reaches qTest: a module × technique matrix, the gaps as a list, the technique mix, and an estimated run time. Printable. |
+| 8 | **Export** | qTest import CSV, one row per test step, plus a traceability matrix — and/or a Tosca automation spec. |
 
-The **Target** on the Generate stage decides which files stage 6 writes: qTest manual test
-cases, a Tosca automation specification, or both from the same drafts.
+Those are not eight steps in a line. **Convert is a branch**, not the second thing you do:
+it runs 1 → 2 → 6 → 8 and skips everything between. The forge runs 1 → 3 → 4 → 5 → 6 → 7 → 8.
+They share the knowledge base at one end and Review and Export at the other, and nothing in
+between.
+
+The **Target** decides which files Export writes — qTest manual cases, a Tosca automation
+specification, or both from the same drafts. Convert sets it as part of converting, so it
+cannot name a file it was not going to write.
 
 ## Coverage
 
@@ -387,10 +394,15 @@ English criterion text — which is usually what you want while the two language
 
 ## Converting cases you already have
 
-The other direction through this tool. **Convert existing cases** on the Knowledge Base
-stage works on whatever the table above is showing, so a module, a branch of the tree, a
-health band or a search is a conversion batch without any extra selection mechanism. Pick
-the destination there — Tosca, qTest, or both — and it sets the Export stage to match,
+The other direction through this tool, and a stage of its own because it is its own job.
+
+**Cases can come from either side.** The knowledge base, if what you want to convert is
+already there. Or a file dropped on the Convert stage itself, which lands in that stage
+only — it never reaches the knowledge base, so a batch you want as a Tosca spec cannot
+reshape the conventions the generator learned. If you later decide they should teach the
+generator too, *Move into the knowledge base* does exactly that, with an undo.
+
+Pick the destination there — Tosca, qTest, or both — and it sets the Export stage to match,
 rather than naming a file it was not going to write.
 
 Every field and every step is carried over word for word; nothing is rewritten. A converted

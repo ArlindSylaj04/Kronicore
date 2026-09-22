@@ -552,7 +552,7 @@ const S = {
   conventions: null,
   archiveHeaders: null,
   sampleLoaded: false,
-  filters: { archive:"", archiveType:"", archiveArea:"", archiveHealth:"", drafts:"",
+  filters: { archive:"", archiveType:"", archiveArea:"", archiveHealth:"", convert:"", drafts:"",
              draftReq:"", draftTech:"", draftModule:"", draftFlag:"" },
   importPath: "",                   // node of the module tree the next import belongs to
   migrateThreshold: 40,             // percent from which a suggestion is applied in bulk
@@ -567,6 +567,8 @@ const S = {
   exp: { delimiter:";", bom:true, repeatName:true, traceability:true, onlyApproved:true, headerLang:"archive", customFields:true, modulePath:true, pathSep:" > " },
   jiraAcField: "",    // e.g. customfield_10101, when Jira does not send field names
   views: [],          // named filter bundles for the knowledge base
+  convertPool: [],    // cases imported only to be converted, kept out of the knowledge base
+  convertFrom: "archive",
   review: { group: "", compact: false },   // how the draft list is laid out
   railFold: false
 };
@@ -609,7 +611,8 @@ function save() {
       archive: S.archive, history: S.history, requirements: S.requirements, drafts: S.drafts,
       conventions: S.conventions, archiveHeaders: S.archiveHeaders,
       sampleLoaded: S.sampleLoaded, gen: S.gen, exp: S.exp, jiraAcField: S.jiraAcField, importPath: S.importPath, moduleTree: S.moduleTree, migrateThreshold: S.migrateThreshold,
-      views: S.views, review: S.review, railFold: S.railFold
+      views: S.views, review: S.review, railFold: S.railFold,
+      convertPool: S.convertPool, convertFrom: S.convertFrom
     }));
   } catch (e) {
     if (!storageWarned) {
@@ -631,6 +634,8 @@ function load() {
       importPath: d.importPath || d.importArea || "",
       migrateThreshold: d.migrateThreshold || 40,
       views: d.views || [],
+      convertPool: d.convertPool || [],
+      convertFrom: d.convertFrom || "archive",
       railFold: !!d.railFold,
       moduleTree: d.moduleTree || []
     });
@@ -647,7 +652,7 @@ function load() {
    survive a cleared browser. */
 const PROJECT_KEYS = ["archive","history","requirements","drafts","conventions",
   "archiveHeaders","moduleTree","importPath","gen","exp","jiraAcField","migrateThreshold",
-  "views","review"];
+  "views","review","convertPool","convertFrom"];
 
 function projectJson() {
   const out = { app: "testfall-schmiede", version: 1, savedAt: new Date().toISOString() };
@@ -1726,12 +1731,16 @@ let HEALTH_CACHE = new WeakMap();
 function resetHealth() { HEALTH_PROFILE = null; HEALTH_GEN++; HEALTH_CACHE = new WeakMap(); }
 
 function healthProfile() {
-  if (HEALTH_PROFILE && HEALTH_PROFILE.n === S.archive.length) return HEALTH_PROFILE;
-  const n = S.archive.length;
-  const share = fn => n ? S.archive.filter(fn).length / n : 1;
+  // Cases waiting to be converted are judged by the same conventions as the
+  // archive, and can supply them when there is no archive at all.
+  const all = S.archive.concat(S.convertPool || []);
+  if (HEALTH_PROFILE && HEALTH_PROFILE.n === all.length) return HEALTH_PROFILE;
+  const n = all.length;
+  const share = fn => n ? all.filter(fn).length / n : 1;
   HEALTH_PROFILE = {
     n: n, gen: HEALTH_GEN,
     // under five cases there is no convention to read, so ask for everything
+    all:    all,
     pre:    n < 5 || share(c => !!clean(c.precondition)) >= 0.2,
     req:    n < 5 || share(c => !!clean(c.requirement))  >= 0.2,
     module: n < 5 || share(c => !!clean(c.path || c.module)) >= 0.2,
@@ -1745,7 +1754,7 @@ function healthProfile() {
    one pass; the expensive half is what the duplicate flag on a draft does. */
 function nameCollisions() {
   const seen = {}, dup = {};
-  S.archive.forEach(c => {
+  S.archive.concat(S.convertPool || []).forEach(c => {
     const k = norm(c.name);
     if (!k) return;
     if (seen[k]) dup[k] = true; else seen[k] = 1;
@@ -2511,6 +2520,9 @@ function trySave(filename, text) {
 
 const STAGES = [
   { id: "archive",      label: "Knowledge Base", count: () => S.archive.length + S.history.length },
+  // Converting is a branch off the archive, not a step after Export: it runs
+  // Knowledge Base -> Convert -> Review -> Export and skips everything between.
+  { id: "convert",      label: "Convert",      count: () => S.drafts.filter(fromArchive).length },
   { id: "requirements", label: "New Requirements", count: () => S.requirements.length },
   { id: "match",        label: "Match",        count: () => S.archive.length && S.requirements.length ? S.requirements.length : 0 },
   { id: "generate",     label: "Generate",     count: () => S.drafts.length },
@@ -2592,8 +2604,8 @@ function renderAll() {
   renderRail(); renderKpis(); renderUndo();
   const p = $("#panel");
   p.textContent = "";
-  ({ archive: viewArchive, requirements: viewRequirements, match: viewMatch, generate: viewGenerate,
-     review: viewReview, coverage: viewCoverage, export: viewExport }[S.stage] || viewArchive)(p);
+  ({ archive: viewArchive, convert: viewConvert, requirements: viewRequirements, match: viewMatch,
+     generate: viewGenerate, review: viewReview, coverage: viewCoverage, export: viewExport }[S.stage] || viewArchive)(p);
   runPendingScroll();
 }
 
@@ -2980,69 +2992,14 @@ function viewArchive(p) {
                      onclick: () => { S.filters.archiveHealth = ""; renderAll(); } }, "\u00d7")
     ]) : null,
     el("span", { class: "small", id: "arc-count" }),
-    el("button", { class: "btn sm", type: "button", title: "Jump to Convert, which works on whatever is shown here",
-      onclick: () => { const t = document.getElementById("convert"); if (t) t.scrollIntoView({ behavior: "smooth", block: "center" }); } }, "Convert these\u2026"),
+    el("button", { class: "btn sm", type: "button", title: "Take this search over to the Convert stage",
+      onclick: () => { S.filters.convert = S.filters.archive; S.convertFrom = "archive"; goto("convert"); } }, "Convert these\u2026"),
     el("button", { class: "btn ghost sm", type: "button", onclick: () => { pushUndo("removing every test case"); S.archive = []; S.conventions = null; S.archiveHeaders = null; save(); renderAll(); } }, "Remove every test case")
   ]);
   p.appendChild(bar);
   const wrap = el("div", { class: "tablewrap", id: "arc-table" });
   p.appendChild(wrap);
   renderArchiveTable();
-  p.appendChild(convertCard());
-}
-
-/* The other direction through this tool: cases that already exist in qTest,
-   read out and written into a different shape. It works on whatever the
-   filters above are showing, so a module or a health band is a conversion
-   batch without any extra selection mechanism. */
-function convertCard() {
-  if (!S.archive.length) return document.createDocumentFragment();
-  const shown = shownArchive();
-  const already = {};
-  S.drafts.forEach(d => { if (fromArchive(d)) already[d.templateId] = true; });
-  const fresh = shown.filter(c => !already[c.tcid]).length;
-  const done = shown.length - fresh;
-
-  const card = el("div", { class: "card", id: "convert" }, [
-    el("div", { class: "row" }, [
-      el("h3", { text: "Convert existing cases", style: "margin:0" }),
-      el("span", { style: "margin-left:auto" }),
-      el("span", { class: "chip mono", text: shown.length + " shown by your filters" }),
-      done ? el("span", { class: "chip good mono", text: done + " already converted" }) : null
-    ].filter(Boolean)),
-    el("p", { class: "card-sub", style: "margin-top:8px", text:
-      "Cases you already have in qTest, carried over whole \u2014 steps, precondition, module, project fields \u2014 and written out in another shape. " +
-      "Narrow the table above to the batch you want: a module, a branch of the tree, a health band, a search." })
-  ]);
-
-  const sel = el("select", { id: "convert-target", style: "width:auto;min-width:220px" }, [
-    el("option", { value: "tosca", text: "Tosca \u2014 automation specification", selected: S.gen.target === "tosca" }),
-    el("option", { value: "qtest", text: "qTest \u2014 back out as manual cases", selected: S.gen.target === "qtest" }),
-    el("option", { value: "both", text: "Both files", selected: S.gen.target === "both" })
-  ]);
-
-  card.appendChild(el("div", { class: "filterbar", style: "margin-top:4px" }, [
-    el("label", { class: "field", style: "flex-direction:row;align-items:center;gap:7px" }, [
-      el("span", { text: "Into" }), sel
-    ]),
-    el("button", {
-      class: "btn primary sm", type: "button", disabled: fresh ? null : "",
-      title: fresh ? "Carry them into Review, then Export writes the file" : "Everything shown has already been converted",
-      onclick: () => convertArchiveCases(shown, sel.value)
-    }, fresh ? "Convert " + fresh + " case" + (fresh === 1 ? "" : "s") : "Nothing left to convert"),
-    done ? el("button", { class: "btn sm", type: "button",
-      onclick: () => goto("review", { draftFlag: "converted" }) }, "See the converted ones") : null
-  ].filter(Boolean)));
-
-  if (shown.length > CONVERT_CAP) card.appendChild(el("p", { class: "small", style: "margin-top:8px",
-    text: "The first " + CONVERT_CAP + " are taken in one go. Convert those, narrow the filter, and take the next batch." }));
-
-  card.appendChild(el("div", { class: "note", style: "margin-top:10px", html:
-    "<strong>What a conversion is and is not.</strong><br>" +
-    "Every field and every step is carried over word for word \u2014 nothing is rewritten. For Tosca the prose of each step is then read into " +
-    "module, control, ActionMode and value, which is the part worth checking: it is a reading of your wording, and your wording was written for a human. " +
-    "The Export stage says which columns are still provisional." }));
-  return card;
 }
 
 /* Old projects come in under their own names; this is where they are placed in
@@ -3196,6 +3153,189 @@ function renderArchiveTable() {
 }
 
 function escapeHtml(s) { return esc(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
+
+/* ---------------------------------------------------------- stage: convert */
+/* Cases that already exist, read out and written into another shape. It is its
+   own stage because it is its own job: nothing here teaches the generator, and
+   a batch you only want as a Tosca spec has no business reshaping the
+   conventions the knowledge base was imported to establish. */
+
+const convertList = () => (S.convertFrom === "pool" ? (S.convertPool || []) : S.archive);
+function shownConvert() {
+  const q = clean(S.filters.convert).toLowerCase();
+  const list = convertList();
+  if (!q) return list;
+  return list.filter(c => (c.tcid + " " + c.name + " " + (c.path || c.area) + " " + c.module + " " +
+    c.tags + " " + c.steps.map(x => x.action).join(" ")).toLowerCase().indexOf(q) >= 0);
+}
+const convertedIds = () => {
+  const have = {};
+  S.drafts.forEach(d => { if (fromArchive(d)) have[d.templateId] = true; });
+  return have;
+};
+
+function viewConvert(p) {
+  p.appendChild(head("Convert existing cases",
+    "The other direction through this tool. Cases you already have — in the knowledge base, or in a file you drop here — carried over whole and written out as a Tosca specification or back as qTest. Nothing is rewritten, and nothing here changes what the generator has learned."));
+
+  /* ---- where the cases come from ---- */
+  const pool = S.convertPool || [];
+  const srcCard = el("div", { class: "card" }, [el("h3", { text: "What to convert" })]);
+  const srcRow = el("div", { class: "filterbar" }, [el("span", { class: "small", text: "From:" })]);
+  [["archive", "the knowledge base", S.archive.length],
+   ["pool", "files imported here", pool.length]].forEach(o => {
+    const on = S.convertFrom === o[0];
+    srcRow.appendChild(el("button", {
+      class: "chip " + (on ? "accent" : ""), type: "button", style: "cursor:pointer",
+      onclick: () => { S.convertFrom = o[0]; save(); renderAll(); }
+    }, o[1] + " · " + o[2]));
+  });
+  srcCard.appendChild(srcRow);
+
+  if (typeof XLSX === "undefined") {
+    srcCard.appendChild(el("div", { class: "note warn", style: "margin-top:10px", html:
+      "<strong>Excel files cannot be read here.</strong><br>The spreadsheet reader did not load, most likely because this network blocks cdnjs.cloudflare.com. In qTest choose <em>Save as</em> \u2192 CSV and import that \u2014 converting works exactly the same." }));
+  }
+  const file = el("input", { type: "file", id: "conv-file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt", multiple: true });
+  file.addEventListener("change", async e => {
+    const files = Array.from(e.target.files || []);
+    let added = 0;
+    for (const fl of files) {
+      let tables;
+      try { tables = await readTables(fl); }
+      catch (err) { toast("Could not read " + fl.name + ": " + err.message); continue; }
+      const area = areaFromFile(fl.name);
+      for (const t of tables) {
+        const { cases } = ingestArchiveRows(t.rows, moduleFromSheet(t.sheet));
+        cases.forEach(c => { c.area = area; c.path = ""; });
+        const index = {};
+        (S.convertPool || []).forEach(c => { index[c.tcid + "|" + c.name] = true; });
+        cases.forEach(c => {
+          if (index[c.tcid + "|" + c.name]) return;
+          index[c.tcid + "|" + c.name] = true;
+          S.convertPool.push(c); added++;
+        });
+      }
+    }
+    if (added) { S.convertFrom = "pool"; resetHealth(); }
+    save(); renderAll();
+    toast(added ? added + " case" + (added === 1 ? "" : "s") + " read in, ready to convert."
+                : "Nothing new in " + files.length + " file" + (files.length === 1 ? "" : "s") + ".");
+    e.target.value = "";
+  });
+  srcCard.appendChild(el("div", { class: "stack", style: "margin-top:10px" }, [
+    el("label", { class: "field" }, [
+      el("span", { text: "Import a qTest export here — it goes into this stage only, not into the knowledge base" }),
+      file
+    ]),
+    pool.length ? el("div", { class: "row" }, [
+      el("span", { class: "small", text: pool.length + " case" + (pool.length === 1 ? "" : "s") + " waiting here." }),
+      el("button", { class: "btn ghost sm", type: "button", onclick: () => {
+        pushUndo("emptying the convert list");
+        S.convertPool = []; S.convertFrom = "archive"; resetHealth(); save(); renderAll();
+      } }, "Empty this list"),
+      el("button", { class: "btn ghost sm", type: "button",
+        title: "Move them into the knowledge base so they also teach the generator",
+        onclick: () => {
+          pushUndo("moving cases into the knowledge base");
+          const m = mergeArchive(S.convertPool);
+          S.convertPool = []; S.convertFrom = "archive";
+          buildIdf(); deriveConventions(); save(); renderAll();
+          toast(m.added + " added to the knowledge base, " + m.updated + " updated in place.");
+        } }, "Move into the knowledge base")
+    ]) : null
+  ].filter(Boolean)));
+  p.appendChild(srcCard);
+
+  const list = shownConvert();
+  const have = convertedIds();
+  const fresh = list.filter(c => !have[c.tcid]).length;
+  const done = list.length - fresh;
+
+  if (!convertList().length) {
+    p.appendChild(el("div", { class: "empty" }, [
+      el("p", { text: S.convertFrom === "pool"
+        ? "No file imported here yet. Drop a qTest export above, or switch the source to the knowledge base."
+        : "The knowledge base is empty. Import there, or drop a file above to convert without touching it." })
+    ]));
+    return;
+  }
+
+  /* ---- the batch ---- */
+  p.appendChild(el("div", { class: "filterbar" }, [
+    el("input", { type: "text", id: "conv-search", placeholder: "Narrow the batch — name, module, step…",
+      value: S.filters.convert,
+      oninput: e => { S.filters.convert = e.target.value; renderConvertTable(); } }),
+    el("span", { class: "small", id: "conv-count" })
+  ]));
+  const wrap = el("div", { class: "tablewrap", id: "conv-table" });
+  p.appendChild(wrap);
+
+  /* ---- into what ---- */
+  const sel = el("select", { id: "convert-target", style: "width:auto;min-width:230px" }, [
+    el("option", { value: "tosca", text: "Tosca — automation specification", selected: S.gen.target === "tosca" }),
+    el("option", { value: "qtest", text: "qTest — back out as manual cases", selected: S.gen.target === "qtest" }),
+    el("option", { value: "both", text: "Both files", selected: S.gen.target === "both" })
+  ]);
+  const go = el("div", { class: "card", id: "convert" }, [
+    el("div", { class: "row" }, [
+      el("h3", { text: "Convert", style: "margin:0" }),
+      el("span", { style: "margin-left:auto" }),
+      el("span", { class: "chip mono", text: list.length + " in this batch" }),
+      done ? el("span", { class: "chip good mono", text: done + " already converted" }) : null
+    ].filter(Boolean)),
+    el("div", { class: "filterbar", style: "margin-top:10px" }, [
+      el("label", { class: "field", style: "flex-direction:row;align-items:center;gap:7px" }, [
+        el("span", { text: "Into" }), sel
+      ]),
+      el("button", {
+        class: "btn primary", type: "button", disabled: fresh ? null : "",
+        title: fresh ? "Carry them into Review, then Export writes the file" : "Everything in this batch is already converted",
+        onclick: () => convertArchiveCases(list, sel.value)
+      }, fresh ? "Convert " + fresh + " case" + (fresh === 1 ? "" : "s") : "Nothing left to convert"),
+      done ? el("button", { class: "btn sm", type: "button",
+        onclick: () => goto("review", { draftFlag: "converted" }) }, "See the converted ones") : null
+    ].filter(Boolean))
+  ]);
+  if (list.length > CONVERT_CAP) go.appendChild(el("p", { class: "small", style: "margin-top:8px",
+    text: "The first " + CONVERT_CAP + " are taken in one go. Convert those, narrow the batch, take the next." }));
+  go.appendChild(el("div", { class: "note", style: "margin-top:10px", html:
+    "<strong>What a conversion is and is not.</strong><br>" +
+    "Every field and every step is carried over word for word — nothing is rewritten, and each card says so. " +
+    "For Tosca the prose of each step is then read into module, control, ActionMode and value, which is the part worth checking: " +
+    "it is a reading of your wording, and your wording was written for a human. The Export stage says which columns are still provisional." }));
+  p.appendChild(go);
+
+  renderConvertTable();
+}
+
+function renderConvertTable() {
+  const wrap = $("#conv-table"); if (!wrap) return;
+  const list = shownConvert();
+  const have = convertedIds();
+  const cnt = $("#conv-count");
+  if (cnt) cnt.textContent = list.length + " of " + convertList().length + " shown";
+  wrap.textContent = "";
+  const t = el("table");
+  t.appendChild(el("thead", {}, el("tr", {}, ["ID", "Name", "Module", "Type", "Health", "Steps", ""].map(h =>
+    el("th", { text: h, class: h === "Steps" ? "num" : "" })))));
+  const tb = el("tbody");
+  list.slice(0, 400).forEach(c => {
+    tb.appendChild(el("tr", { style: "cursor:pointer", onclick: () => showArchiveCase(c) }, [
+      el("td", { class: "id", text: c.tcid }),
+      el("td", { text: c.name }),
+      el("td", { text: c.path || c.module || "—" }),
+      el("td", {}, c.type ? el("span", { class: "chip", text: c.type }) : document.createTextNode("—")),
+      el("td", {}, healthChip(healthOf(c))),
+      el("td", { class: "num", text: String(c.steps.length) }),
+      el("td", {}, have[c.tcid] ? el("span", { class: "chip good", text: "converted" }) : null)
+    ]));
+  });
+  t.appendChild(tb);
+  wrap.appendChild(t);
+  if (list.length > 400) wrap.appendChild(el("p", { class: "small", style: "padding:8px 11px",
+    text: "Showing the first 400 of " + list.length + " — narrow the batch to see the rest." }));
+}
 
 /* ---------------------------------------------------- stage: requirements */
 function viewRequirements(p) {
