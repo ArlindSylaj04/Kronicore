@@ -2346,6 +2346,10 @@ const TOSCA_VERBS = [
 const TOSCA_MODULE_HINT  = /\b(?:transaktion|transaction|anwendung|modul|module|maske|screen|seite|page|kachel|tile|dialog|fenster|window)\s+([A-ZÄÖÜ][\wÄÖÜäöüß./-]*(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß./-]*){0,3})/i;
 const TOSCA_CONTROL_HINT = /\b(?:feld|field|schaltfläche|schaltflaeche|button|checkbox|kontrollkästchen|dropdown|liste|list|spalte|column|register|tab|kachel|tile|eingabefeld)\s+([A-ZÄÖÜ][\wÄÖÜäöüß./-]*(?:[ -][A-ZÄÖÜ][\wÄÖÜäöüß./-]*){0,3})/i;
 const TOSCA_QUOTED = /["“„»']([^"“”„«»']{2,60})["”“«»']/;
+/* "das Dialogfenster über einen Klick auf X schließen" acts on X, not on the
+   window it closes: what follows "Klick auf" is the control, even when it is
+   one character wide. */
+const TOSCA_CLICK = /\b(?:klick|klicken|klickt|click|clicking)\s+(?:auf|on)\s+(?:das|der|die|den|dem|ein|eine|einen|the)?\s*["“„»']?([A-ZÄÖÜ][\wÄÖÜäöüß./-]*(?:[ -][A-ZÄÖÜ][\wÄÖÜäöüß./-]*){0,3})["”“«»']?/i;
 
 /* one step cell often holds a small bullet list; each line is its own value */
 function toscaLines(text) {
@@ -2384,6 +2388,7 @@ function toscaControl(line) {
   // the hints are case-insensitive on the keyword but not on what follows it:
   // a control is a named thing, and "Eingabefeld angezeigt" names nothing
   let m = line.match(TOSCA_CONTROL_HINT); if (m && capitalised(m[1])) return leadingCaps(m[1]);
+  m = line.match(TOSCA_CLICK);            if (m && capitalised(m[1])) return leadingCaps(m[1]);
   m = line.match(TOSCA_QUOTED);           if (m) return clean(m[1]);
   m = line.match(TOSCA_MODULE_HINT);      if (m && capitalised(m[1])) return leadingCaps(m[1]);
   // otherwise the first capitalised word that is not an article or the verb
@@ -2438,7 +2443,12 @@ function screenNamed(text) {
   return "";
 }
 
+/* "TC: YMPDIMG" and "Transaktion VA01 aufrufen" say it outright. A sentence
+   that names the thing beats any guess about its shape. */
+const TCODE_SAID = /\b(?:tc|t-?code|transaktionscode|transaktion|transaction)\s*:?\s*([A-Z][A-Z0-9_\/]{2,19})\b/i;
 function tcodeIn(text) {
+  const said = String(text).match(TCODE_SAID);
+  if (said && said[1] === said[1].toUpperCase() && !TCODE_NOISE.has(said[1])) return said[1];
   const hit = (String(text).match(/[A-Z][A-Z0-9_\-\/]{2,19}/g) || []).filter(looksLikeTcode);
   return hit[0] || "";
 }
@@ -2448,17 +2458,43 @@ function tcodeIn(text) {
    something quoted — or every capitalised German noun pairs with the next word. */
 const LV_PAIR = /([A-Z\u00c4\u00d6\u00dc][\w\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df]{2,})\s*[:=]?\s+("[^"]{1,40}"|\d[\w.,\-\/]*|[A-Z]{1,8}\d[\w.\-\/]*|[A-Z]{2,6})(?=$|[\s,;.])/g;
 
+/* "Im Feld: \u201eSchnittstellenschl\u00fcssel\u201c den Wert: \u201e510\u201c eintragen" names both
+   sides out loud. Read the other way round it yields Feld=Schnittstellenschl\u00fcssel
+   and Wert=510 \u2014 two controls that do not exist, and the real field name
+   demoted to data. */
+const FELD_WERT = /\b(?:feld|field)\s*:?\s*["“„»']?([^"“”„«»':;,]{2,60}?)["”“«»']?\s*,?\s*(?:den|der|das|dem|die|mit dem|with the|the)?\s*(?:wert|value)\s*:?\s*["“„»']?([^"“”„«»':;,]{1,60}?)["”“«»']?\s*(?=$|[,;.]|\b(?:eintragen|eingeben|erfassen|setzen|pflegen|hinterlegen|enter|input|fill)\b)/i;
+
+/* Feld, Wert, Spalte, Eintrag are what a sentence calls a thing \u2014 never the
+   thing. Status stays off this list on purpose: "Status 53" is a real IDoc
+   verification and dropping it would lose a check. */
+const LABEL_META = /^(feld|felder|field|fields|wert|werte|value|values|spalte|spalten|column|columns|zeile|row|eintrag|einträge|entry|gruppierung|grouping|bereich|abschnitt|section|option|parameter|schritt|schritte|step|steps|punkt|nr|nummer)$/i;
+
 function labelValuePairs(segment) {
   const out = [];
+  const fw = segment.match(FELD_WERT);
+  if (fw && clean(fw[1]) && clean(fw[2])) {
+    out.push({ label: clean(fw[1]), value: clean(fw[2]) });
+    return out;
+  }
   let m;
   LV_PAIR.lastIndex = 0;
   while ((m = LV_PAIR.exec(segment)) !== null) {
     const label = clean(m[1]);
-    if (TOSCA_NOISE.test(label)) continue;
+    if (TOSCA_NOISE.test(label) || LABEL_META.test(label)) continue;
     out.push({ label: label, value: clean(m[2]).replace(/^"|"$/g, "") });
   }
   return out;
 }
+
+/* "Schritt 2 bis 4 mit Schl\u00fcssel 522 wiederholen" is not a field called Step.
+   It is the case saying the same path runs twice on different data \u2014 which in
+   Tosca is one TestCase with a TestCase-Design sheet, not a second copy. */
+const REPEAT = /\b(?:schritte?|step|steps)\s*(\d+)\s*(?:(?:bis|b\.|\-|\u2013|to|and|und)\s*(\d+))?[^.;]{0,80}?\b(?:wiederholen|wiederholt|erneut ausf\u00fchren|repeat|repeated)\b/i;
+
+/* A manual case states a screen boundary two ways: by naming the next screen,
+   or by saying something appeared. Both end the TestStep \u2014 only the first also
+   renames it. */
+const SCREEN_SHOWN = /\b(?:wird|werden)\s+(?:angezeigt|ge\u00f6ffnet|geoeffnet|dargestellt|aufgebaut)\b|\b\u00f6ffnet sich\b|\boeffnet sich\b|\berscheint\b|\berscheinen\b|\bis displayed\b|\bare displayed\b|\bopens\b|\bappears\b/i;
 
 const BUFFERABLE = /\b(belegnummer|bestellnummer|auftragsnummer|rechnungsnummer|lieferungsnummer|materialbeleg|vorgangsnummer)\b/i;
 const COMMIT = /\b(sichern|speichern|buchen|best\u00e4tigen|bestaetigen|absenden|save|post|confirm|submit)\b/i;
@@ -2505,6 +2541,19 @@ function toscaPlan(d) {
       return;
     }
 
+    // a repeat is a data row, not a step: it says the path runs again
+    const rep = action.match(REPEAT);
+    if (rep) {
+      const from = rep[1], to = rep[2] || rep[1];
+      const span = from + (to !== from ? "\u2013" + to : "");
+      const r = open("\u2014 repeat TestStep " + span + " \u2014", "repeat", action);
+      r.repeat = { from: from, to: to };
+      labelValuePairs(action).forEach(pr => { r.values.push({
+        control: pr.label, mode: "Input", value: pr.value, source: action }); });
+      cur = null;
+      return;
+    }
+
     // Tosca does not "call a transaction"; it puts the code in OKCODE
     const tc = tcodeIn(action);
     if (tc) {
@@ -2533,7 +2582,11 @@ function toscaPlan(d) {
     }
 
     toscaLines(st.expected).forEach(line => {
-      cur.values.push({ control: toscaControl(line), mode: "Verify", value: toscaValue(line, "Verify"), source: line });
+      // "Man kehrt zur\u00fcck zur SAP Fiori Startseite" checks the screen, not the
+      // word zur\u00fcck \u2014 unless the line names a control outright.
+      const named = (TOSCA_CONTROL_HINT.test(line) || TOSCA_QUOTED.test(line))
+        ? toscaControl(line) : (screenNamed(line) || toscaControl(line));
+      cur.values.push({ control: named, mode: "Verify", value: toscaValue(line, "Verify"), source: line });
     });
     // a number the case produces is a number a later step will ask for
     const buf = clean(st.expected).match(BUFFERABLE);
@@ -2544,10 +2597,14 @@ function toscaPlan(d) {
 
     const next = screenNamed(st.expected);
     if (next) { screen = next; cur = null; }
+    else if (SCREEN_SHOWN.test(st.expected)) cur = null;   // same screen named, new step
   });
 
   // an Input with nothing to type is the tester's homework, said out loud
   steps.forEach(x => x.values.forEach(v => {
+    // "Monitoring | Select | Monitoring" says one thing twice: the second is the
+    // control's own name coming back as data.
+    if (v.value && clean(v.value).toLowerCase() === clean(v.control).toLowerCase()) v.value = "";
     if (v.mode === "Input" && !clean(v.value)) v.value = "<?>";
     if (!clean(v.control)) v.control = "<?>";
   }));
@@ -2570,7 +2627,8 @@ function buildToscaRows() {
     plan.forEach(stp => {
       if (!stp.values.length) {
         rows.push([first ? d.name : "", first ? (d.module || "") : "", String(stp.n),
-          stp.module, stp.kind === "block" ? "\u2014 reusable block \u2014" : "", "", "", "", stp.source,
+          stp.module, stp.kind === "block" ? "\u2014 reusable block \u2014"
+            : stp.kind === "repeat" ? "\u2014 TestCase-Design row, not a copy \u2014" : "", "", "", "", stp.source,
           first ? (d.templateId || d.requirement || "") : ""]);
         first = false;
         return;
@@ -3321,14 +3379,16 @@ function toscaTable(plan, withSource) {
         el("td", { class: "id", text: String(stp.n) }),
         el("td", {}, el("span", { class: "chip accent", text: stp.module })),
         el("td", { colspan: "4", class: "small",
-          text: stp.kind === "block" ? "reusable block — written once, referenced here" : clean(stp.source) })
+          text: stp.kind === "block" ? "reusable block — written once, referenced here"
+              : stp.kind === "repeat" ? "the same path again — in Tosca a second data row, not a second copy"
+              : clean(stp.source) })
       ]));
       return;
     }
     stp.values.forEach((v, j) => tb.appendChild(el("tr", {}, [
       el("td", { class: "id", text: j === 0 ? String(stp.n) : "" }),
       el("td", {}, j === 0
-        ? el("span", { class: "chip" + (stp.kind === "nav" ? " accent" : ""), text: stp.module })
+        ? el("span", { class: "chip" + (stp.kind === "nav" ? " accent" : stp.kind === "repeat" ? " warn" : ""), text: stp.module })
         : document.createTextNode("")),
       el("td", { text: v.control, title: withSource ? v.source : "" }),
       el("td", { class: "small", style: "color:var(--faint)", text: "—" }),
@@ -3344,7 +3404,9 @@ function toscaStats(plan, written) {
   const lines = plan.reduce((n, x) => n + x.values.length, 0);
   const todo = plan.reduce((n, x) => n + x.values.filter(v => v.value === "<?>" || v.control === "<?>").length, 0);
   const blocks = plan.filter(x => x.kind === "block").length;
-  return { steps: plan.length, lines: lines, todo: todo, blocks: blocks, written: written };
+  const repeats = plan.filter(x => x.kind === "repeat");
+  return { steps: plan.length, lines: lines, todo: todo, blocks: blocks, written: written,
+    repeats: repeats.length, tcd: repeats.reduce((n, x) => n + x.values.length, 0) };
 }
 
 function toscaReading(d) {
@@ -3363,6 +3425,9 @@ function toscaReading(d) {
   const notes = [];
   if (st.blocks) notes.push(st.blocks + " step" + (st.blocks === 1 ? " is" : "s are") +
     " a reusable block your archive repeats, referenced rather than copied");
+  if (st.repeats) notes.push(st.repeats + " step" + (st.repeats === 1 ? "" : "s") +
+    " said to repeat an earlier one" + (st.tcd ? " with different data" : "") +
+    " — in Tosca that is one TestCase with a TestCase-Design sheet, one row per run, not the steps written twice");
   if (st.todo) notes.push(st.todo + " line" + (st.todo === 1 ? "" : "s") +
     " marked <?> — the sentence named no value or no control, so a person must supply it");
   notes.push("ModuleAttribute stays empty on purpose: it only exists once the screen is scanned with Tosca's SAP engine");
@@ -3795,7 +3860,10 @@ const SAP_WORDS = /\b(sap|transaktion|t-?code|buchungskreis|werk|lagerort|verkau
    since TF-201 and BIB-2101 have the same shape as a t-code and are not one. */
 const TCODE_NOISE = new Set(["CSV","ISBN","PDF","XML","JSON","HTML","HTTP","URL","GUI","SAP","EDI",
   "API","REST","SOAP","UTF","ERP","CRM","OK","ID","AC","TC","UI","IT","QA","DE","EN","PC",
-  "E2E","UAT","SIT","FAT","B2B","B2C","UTF8","SHA1","MD5","ISO"]);
+  "E2E","UAT","SIT","FAT","B2B","B2C","UTF8","SHA1","MD5","ISO",
+  // capitals that Y/Z namespace rule below would otherwise swallow
+  "ZURUECK","ZURUCK","ZUSATZ","ZEILE","ZEIT","ZIEL","ZENTRAL","ZUGRIFF","ZUSTAND",
+  "ZAHLUNG","ZAHL","ZUSAMMEN","YEAR","YES","ZONE"]);
 const looksLikeTcode = w => {
   if (TCODE_REF[w]) return true;
   if (TCODE_NOISE.has(w)) return false;
@@ -3804,6 +3872,10 @@ const looksLikeTcode = w => {
   // Four characters upwards for the guess. Three is too little to tell a
   // transaction from a tag: E2E, UAT and SIT all read like one otherwise.
   // Anything shorter has to be in the reference, which is where F-02 comes from.
+  // SAP keeps Y* and Z* free for what a company writes itself, and those names
+  // carry no digit at all: YMPDIMG and ZFIREPORT are transactions, and the
+  // digit rule below would throw both away.
+  if (/^[YZ][A-Z][A-Z0-9_]{2,7}$/.test(w)) return true;
   if (!/^[A-Z][A-Z0-9_\-\/]{3,19}$/.test(w)) return false;
   return /\d/.test(w) && /[A-Z]/.test(w.slice(1));
 };

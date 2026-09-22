@@ -426,14 +426,26 @@ crosses a screen and fills four fields. So the reading has to **expand**, not tr
 | "…erfassen und sichern" | the fields, then Save as its own line |
 | "Die Statusleiste nennt die vergebene Belegnummer" | a Verify **and** a Buffer — a person remembers the number, Tosca does not |
 | "ein gültiger Kunde" | a value, or a TestCase-Design reference |
+| "Im Feld: *Schnittstellenschlüssel* den Wert: *510* eintragen" | one line, control `Schnittstellenschlüssel`, value `510` — `Feld` and `Wert` name nothing |
+| "Schritt 2 bis 4 mit Schlüssel 522 wiederholen" | **not** four more TestSteps: one TestCase, a TestCase-Design sheet, one row per run |
+| "das Dialogfenster über einen Klick auf X schließen" | the control is `X`, not the window it closes |
+| "Man kehrt zurück zur SAP Fiori Startseite" | a Verify on `SAP Fiori Startseite` |
 
 On the sample's `SAP-101` that is **4 written steps → 4 TestSteps and 14 TestStepValues**.
 
 Screens come from the wording itself: the expected result of one step names the screen the
 next step works on — *"Das Übersichtsbild wird angezeigt"* is where step four happens — and
-that is the only screen boundary a manual case ever states. German names its screens in one
+that is the strongest screen boundary a manual case states. German names its screens in one
 word, so `Einstiegsbild`, `Suchmaske` and `Startseite` come through whole, without the
-article in front of them.
+article in front of them. A result that only says something *appeared* — *erscheint*,
+*öffnet sich*, *wird angezeigt* — closes the TestStep too, without renaming it: the screen
+is unnamed there, but the boundary is still real, and collapsing across it is what turns a
+ten-step case into five TestSteps instead of nine.
+
+Transactions include the ones your own company wrote. SAP keeps the `Y…` and `Z…` namespace
+free for customer development, and those names carry no digit — `YMPDIMG` and `ZKURSVERW`
+are transactions that a digit-based guess throws away. A sentence that says it outright
+(`TC: YMPDIMG`, *Transaktion VA01 aufrufen*) beats any guess about shape.
 
 A step the whole archive repeats is not copied into every case. The 82% opening step
 becomes `TSB_Bibliothekssystem_Anmelden`, referenced as a **reusable block** — which is
