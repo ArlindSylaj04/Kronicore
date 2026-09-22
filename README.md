@@ -467,6 +467,19 @@ invented.
 The column names themselves stay provisional until a real Tosca export is available to
 check them against; the reading below them does not depend on that.
 
+## The shell
+
+The app is one page: a fixed sidebar carrying the product name, the pipeline and
+the local-only notice; a sticky top bar with search, save/open and an overflow
+menu; then the KPI row and the stage panel. Light and dark both ship, and a
+light-and-motion toggle in the top bar turns the background effects off for
+anyone who finds them distracting — `prefers-reduced-motion` turns them off
+without being asked.
+
+The layout is checked at 390, 620, 900 and 1440px in the regression suite, for
+horizontal overflow specifically: a page that scrolls sideways on a phone is a
+bug, not a preference.
+
 ## What the archive already covers
 
 Before a single case is forged, the Match stage asks the archive a question it
