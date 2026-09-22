@@ -2407,49 +2407,185 @@ function toscaValue(line, mode) {
   return "";            // left for the engineer rather than inventing Tosca syntax
 }
 
-/* Every value row a single manual step implies. ctx carries the module
-   forward, the way a Tosca test case stays inside a module until it moves. */
-function toscaStepRows(step, ctx) {
-  const rows = [];
-  const mm = clean(step.action).match(TOSCA_MODULE_HINT);
-  if (mm && capitalised(mm[1])) ctx.module = leadingCaps(mm[1]);
+/* ---- a manual case read into Tosca's shape ------------------------------- */
+/* Tosca is three levels: a TestCase holds TestSteps, a TestStep is one Module
+   — which for SAP GUI means one screen — and a TestStepValue is one control on
+   it. A manual step is none of those. It is a sentence for a person, and one
+   sentence routinely crosses a screen and fills four fields.
+   So the reading has to expand, not translate: more lines than the manual has
+   steps, grouped by the screen they belong to. */
 
-  const emit = (line, forced, fallback) => {
-    const pairs = toscaPairs(line);
-    if (pairs.length) {
-      pairs.forEach(pr => rows.push({ module: ctx.module, control: pr.control, mode: forced || toscaMode(line, "Input"), value: pr.value, source: line }));
-      return;
+/* German names its screens in one word — Einstiegsbild, Übersichtsbild,
+   Suchmaske, Startseite — so the compound is the name, and the capitalised
+   words in front of it belong to it unless one of them is an article. */
+const SCREEN_TAIL = /(?:bild|maske|seite|men[\u00fcu]e?|dialog|fenster|popup|screen|registerkarte)$/i;
+const ARTICLE = /^(das|der|die|den|dem|des|ein|eine|einen|the|a|an)$/i;
+
+/* The expected result of one step names the screen the next step works on —
+   "Das Übersichtsbild wird angezeigt" is where step four happens. That is the
+   only screen boundary a manual case ever states, so it is the one used. */
+function screenNamed(text) {
+  const words = clean(text).split(/\s+/).map(w => w.replace(/[.,;:!?]+$/, ""));
+  for (let i = 0; i < words.length; i++) {
+    if (!capitalised(words[i]) || !SCREEN_TAIL.test(words[i])) continue;
+    const lead = [];
+    for (let j = i - 1; j >= 0 && lead.length < 3; j--) {
+      if (!capitalised(words[j]) || ARTICLE.test(words[j])) break;
+      lead.unshift(words[j]);
     }
-    const mode = forced || toscaMode(line, fallback);
-    rows.push({ module: ctx.module, control: toscaControl(line), mode: mode, value: toscaValue(line, mode), source: line });
-  };
-
-  toscaLines(step.action).forEach((line, i) => emit(line, null, i === 0 ? "Select" : "Input"));
-  toscaLines(step.expected).forEach(line => emit(line, "Verify"));
-  return rows;
+    return lead.concat([words[i]]).join(" ");
+  }
+  return "";
 }
 
-const TOSCA_COLUMNS = ["TestCase","Folder","TestStep #","TestStep","Module","Control","ActionMode","Value","Source sentence","Origin"];
+function tcodeIn(text) {
+  const hit = (String(text).match(/[A-Z][A-Z0-9_\-\/]{2,19}/g) || []).filter(looksLikeTcode);
+  return hit[0] || "";
+}
+
+/* "Auftragsart TA, Verkaufsorganisation 1000, Vertriebsweg 10 und Sparte 00"
+   is four fields, not one. The value has to look like data — a number, a code,
+   something quoted — or every capitalised German noun pairs with the next word. */
+const LV_PAIR = /([A-Z\u00c4\u00d6\u00dc][\w\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df]{2,})\s*[:=]?\s+("[^"]{1,40}"|\d[\w.,\-\/]*|[A-Z]{1,8}\d[\w.\-\/]*|[A-Z]{2,6})(?=$|[\s,;.])/g;
+
+function labelValuePairs(segment) {
+  const out = [];
+  let m;
+  LV_PAIR.lastIndex = 0;
+  while ((m = LV_PAIR.exec(segment)) !== null) {
+    const label = clean(m[1]);
+    if (TOSCA_NOISE.test(label)) continue;
+    out.push({ label: label, value: clean(m[2]).replace(/^"|"$/g, "") });
+  }
+  return out;
+}
+
+const BUFFERABLE = /\b(belegnummer|bestellnummer|auftragsnummer|rechnungsnummer|lieferungsnummer|materialbeleg|vorgangsnummer)\b/i;
+const COMMIT = /\b(sichern|speichern|buchen|best\u00e4tigen|bestaetigen|absenden|save|post|confirm|submit)\b/i;
+
+const normStep = a => clean(a).toLowerCase().replace(/["\u201e\u201c\u00bb\u00ab]/g, "").replace(/\b\d+\b/g, "#");
+const BLOCK_SKIP = /^(am|an|auf|aus|bei|das|der|die|den|dem|des|ein|eine|einen|einem|einer|f\u00fcr|fuer|im|in|mit|nach|von|vom|zu|zum|zur|als|und|oder|the|a|an|at|on|in|with|to)$/i;
+/* A block is named for what it does, not for the preposition it starts with:
+   "Am Bibliothekssystem als Mitarbeiter anmelden" is TSB_Bibliothekssystem_Anmelden. */
+function blockName(action) {
+  const words = clean(action).split(/\s+/).map(w => w.replace(/[.,;:!?]+$/, ""));
+  const nouns = words.filter(w => capitalised(w) && !BLOCK_SKIP.test(w));
+  const verbs = words.filter(w => /[a-z\u00e4\u00f6\u00fc\u00df]en$/.test(w) && !BLOCK_SKIP.test(w));
+  const parts = uniq(nouns.slice(0, 1).concat(verbs.length ? [titlecase(verbs[verbs.length - 1])] : []));
+  return "TSB_" + (parts.join("_") || words.slice(0, 2).join("_"));
+}
+
+/* The plan: TestSteps, each with the values that belong to its screen. */
+function toscaPlan(d) {
+  const conv = S.conventions || {};
+  const reusable = {};
+  (conv.preamble || []).concat(conv.epilogue || []).forEach(x => {
+    if (clean(x.action)) reusable[normStep(x.action)] = blockName(x.action);
+  });
+
+  const steps = [];
+  let cur = null;
+  let screen = clean(d.module) || "";
+  const open = (module, kind, source) => {
+    cur = { n: steps.length + 1, module: module || "(screen not named)", kind: kind, source: source, values: [] };
+    steps.push(cur);
+    return cur;
+  };
+
+  (d.steps || []).forEach(st => {
+    const action = clean(st.action);
+    if (!action && !clean(st.expected)) return;
+
+    // a step the whole archive repeats is a reusable block, not 200 copies of itself
+    const block = reusable[normStep(action)];
+    if (block) {
+      open(block, "block", action);
+      cur = null;
+      screen = screenNamed(st.expected) || screen;
+      return;
+    }
+
+    // Tosca does not "call a transaction"; it puts the code in OKCODE
+    const tc = tcodeIn(action);
+    if (tc) {
+      open("SAP Session", "nav", action).values.push({
+        control: "OKCODE", mode: "Input", value: "/n" + tc, source: action });
+      cur = null;
+      screen = screenNamed(st.expected) || tc;
+      return;
+    }
+
+    if (!cur) open(screen, "screen", action);
+
+    let any = false;
+    action.split(/\s*[,;]\s*|\s+und\s+/i).forEach(seg => {
+      labelValuePairs(seg).forEach(pr => {
+        cur.values.push({ control: pr.label, mode: "Input", value: pr.value, source: clean(seg) });
+        any = true;
+      });
+    });
+    if (!any && action) {
+      const mode = toscaMode(action, "Select");
+      cur.values.push({ control: toscaControl(action), mode: mode, value: toscaValue(action, mode), source: action });
+    } else {
+      const c = action.match(COMMIT);
+      if (c) cur.values.push({ control: titlecase(c[1]), mode: "Select", value: "", source: action });
+    }
+
+    toscaLines(st.expected).forEach(line => {
+      cur.values.push({ control: toscaControl(line), mode: "Verify", value: toscaValue(line, "Verify"), source: line });
+    });
+    // a number the case produces is a number a later step will ask for
+    const buf = clean(st.expected).match(BUFFERABLE);
+    if (buf) {
+      const name = titlecase(clean(buf[1]));
+      cur.values.push({ control: name, mode: "Buffer", value: "{B[" + name + "]}", source: clean(st.expected) });
+    }
+
+    const next = screenNamed(st.expected);
+    if (next) { screen = next; cur = null; }
+  });
+
+  // an Input with nothing to type is the tester's homework, said out loud
+  steps.forEach(x => x.values.forEach(v => {
+    if (v.mode === "Input" && !clean(v.value)) v.value = "<?>";
+    if (!clean(v.control)) v.control = "<?>";
+  }));
+  return steps;
+}
+
+const TOSCA_COLUMNS = ["TestCase","Folder","TestStep #","TestStep / Module",
+  "Control (your wording)","ModuleAttribute (fill in after the scan)","ActionMode","Value",
+  "Source sentence","Origin"];
 
 function buildToscaRows() {
   const rows = [TOSCA_COLUMNS];
   exportedDrafts().forEach(d => {
-    const ctx = { module: d.module || "" };
-    d.steps.forEach((s, i) => {
-      const values = toscaStepRows(s, ctx);
-      const stepName = clean(s.action).slice(0, 80) || ("Step " + (i + 1));
-      if (!values.length) {
-        rows.push([d.name, d.module || "", String(i + 1), stepName, ctx.module, "", "Select", "", clean(s.action), d.templateId || d.requirement || ""]);
+    const plan = toscaPlan(d);
+    if (!plan.length) {
+      rows.push([d.name, d.module || "", "", "", "", "", "", "", "", d.templateId || d.requirement || ""]);
+      return;
+    }
+    let first = true;
+    plan.forEach(stp => {
+      if (!stp.values.length) {
+        rows.push([first ? d.name : "", first ? (d.module || "") : "", String(stp.n),
+          stp.module, stp.kind === "block" ? "\u2014 reusable block \u2014" : "", "", "", "", stp.source,
+          first ? (d.templateId || d.requirement || "") : ""]);
+        first = false;
         return;
       }
-      values.forEach((v, j) => rows.push([
-        j === 0 ? d.name : "",
-        j === 0 ? (d.module || "") : "",
-        j === 0 ? String(i + 1) : "",
-        j === 0 ? stepName : "",
-        v.module, v.control, v.mode, v.value, v.source,
-        j === 0 ? (d.templateId || d.requirement || "") : ""
-      ]));
+      stp.values.forEach((v, j) => {
+        rows.push([
+          first ? d.name : "",
+          first ? (d.module || "") : "",
+          j === 0 ? String(stp.n) : "",
+          j === 0 ? stp.module : "",
+          v.control, "", v.mode, v.value, v.source,
+          first ? (d.templateId || d.requirement || "") : ""
+        ]);
+        first = false;
+      });
     });
   });
   return rows;
@@ -3169,43 +3305,69 @@ function renderArchiveTable() {
 function escapeHtml(s) { return esc(s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
 
 /* The conversion is not the copy — the copy is just the case moving house. The
-   conversion is this: prose a person wrote, read into the four things Tosca
-   needs. Showing it where the case is reviewed is the difference between
-   "what did I convert?" and a sheet worth handing to an automation engineer. */
-function toscaFor(d) {
-  const ctx = { module: d.module || "" };
-  return (d.steps || []).map((st, i) => ({
-    n: i + 1, action: st.action, values: toscaStepRows(st, ctx)
-  }));
+   conversion is this: prose a person wrote, expanded into the screens and
+   controls Tosca needs, which is always more lines than the manual has steps. */
+const toscaFor = d => toscaPlan(d);
+
+function toscaTable(plan, withSource) {
+  const tw = el("div", { class: "tablewrap", style: "margin-top:8px" });
+  const t = el("table", { class: "steps" });
+  t.appendChild(el("thead", {}, el("tr", {}, ["#", "TestStep / Module", "Control", "ModuleAttribute", "Mode", "Value"]
+    .map(h => el("th", { text: h })))));
+  const tb = el("tbody");
+  plan.forEach(stp => {
+    if (!stp.values.length) {
+      tb.appendChild(el("tr", {}, [
+        el("td", { class: "id", text: String(stp.n) }),
+        el("td", {}, el("span", { class: "chip accent", text: stp.module })),
+        el("td", { colspan: "4", class: "small",
+          text: stp.kind === "block" ? "reusable block — written once, referenced here" : clean(stp.source) })
+      ]));
+      return;
+    }
+    stp.values.forEach((v, j) => tb.appendChild(el("tr", {}, [
+      el("td", { class: "id", text: j === 0 ? String(stp.n) : "" }),
+      el("td", {}, j === 0
+        ? el("span", { class: "chip" + (stp.kind === "nav" ? " accent" : ""), text: stp.module })
+        : document.createTextNode("")),
+      el("td", { text: v.control, title: withSource ? v.source : "" }),
+      el("td", { class: "small", style: "color:var(--faint)", text: "—" }),
+      el("td", {}, el("span", { class: "chip mono" + (v.mode === "Buffer" ? " good" : v.mode === "Verify" ? " warn" : ""), text: v.mode })),
+      el("td", { class: "small", text: v.value || "—" })
+    ])));
+  });
+  t.appendChild(tb); tw.appendChild(t);
+  return tw;
+}
+
+function toscaStats(plan, written) {
+  const lines = plan.reduce((n, x) => n + x.values.length, 0);
+  const todo = plan.reduce((n, x) => n + x.values.filter(v => v.value === "<?>" || v.control === "<?>").length, 0);
+  const blocks = plan.filter(x => x.kind === "block").length;
+  return { steps: plan.length, lines: lines, todo: todo, blocks: blocks, written: written };
 }
 
 function toscaReading(d) {
-  const per = toscaFor(d);
-  const total = per.reduce((n, x) => n + x.values.length, 0);
-  if (!total) return null;
+  const plan = toscaPlan(d);
+  const st = toscaStats(plan, (d.steps || []).length);
+  if (!st.lines && !st.steps) return null;
+
   const box = el("details", { class: "raw", open: fromArchive(d) ? "" : null }, [
-    el("summary", { text: "Tosca reading — " + (d.steps || []).length +
-      " written steps become " + total + " TestStepValue" + (total === 1 ? "" : "s") })
+    el("summary", { text: "Tosca reading — " + st.written + " written steps become " +
+      st.steps + " TestStep" + (st.steps === 1 ? "" : "s") + " and " +
+      st.lines + " TestStepValue" + (st.lines === 1 ? "" : "s") })
   ]);
   box.appendChild(el("p", { class: "small", text:
-    "This is what the conversion produces. It is a reading of wording written for a person, so it is the part worth checking — fix the step above and this follows." }));
-  const tw = el("div", { class: "tablewrap", style: "margin-top:8px" });
-  const t = el("table", { class: "steps" });
-  t.appendChild(el("thead", {}, el("tr", {}, ["#", "Module", "Control", "ActionMode", "Value"].map(h =>
-    el("th", { text: h })))));
-  const tb = el("tbody");
-  per.forEach(x => x.values.forEach((v, j) => tb.appendChild(el("tr", {}, [
-    el("td", { class: "id", text: j === 0 ? String(x.n) : "" }),
-    el("td", { class: "small", text: v.module || "—" }),
-    el("td", { text: v.control || "—", title: v.source }),
-    el("td", {}, el("span", { class: "chip mono", text: v.mode })),
-    el("td", { class: "small", text: v.value || "—" })
-  ]))));
-  t.appendChild(tb); tw.appendChild(t);
-  box.appendChild(tw);
-  const blank = per.reduce((n, x) => n + x.values.filter(v => !v.control).length, 0);
-  if (blank) box.appendChild(el("p", { class: "small", style: "margin-top:8px",
-    text: blank + " line" + (blank === 1 ? "" : "s") + " gave up no control name — that step names no field, button or screen the reader could find." }));
+    "A TestStep is one screen; a TestStepValue is one control on it. One written sentence routinely fills four fields, so this is longer than the case above — that is the conversion. Edit a step and this follows." }));
+  box.appendChild(toscaTable(plan, true));
+  const notes = [];
+  if (st.blocks) notes.push(st.blocks + " step" + (st.blocks === 1 ? " is" : "s are") +
+    " a reusable block your archive repeats, referenced rather than copied");
+  if (st.todo) notes.push(st.todo + " line" + (st.todo === 1 ? "" : "s") +
+    " marked <?> — the sentence named no value or no control, so a person must supply it");
+  notes.push("ModuleAttribute stays empty on purpose: it only exists once the screen is scanned with Tosca's SAP engine");
+  box.appendChild(el("ul", { class: "small", style: "margin:8px 0 0 18px; padding:0" },
+    notes.map(x => el("li", { text: x }))));
   return box;
 }
 
@@ -3357,27 +3519,16 @@ function viewConvert(p) {
     text: "The first " + CONVERT_CAP + " are taken in one go. Convert those, narrow the batch, take the next." }));
   /* what the reading will look like, on a real case, before a batch is taken */
   const sample = list.filter(c => c.steps.length)[0];
-  if (sample && sel.value !== "qtest") {
-    const probe = { module: sample.module, steps: sample.steps };
-    const per = toscaFor(probe);
-    const total = per.reduce((n, x) => n + x.values.length, 0);
+  if (sample && S.gen.target !== "qtest") {
+    const plan = toscaPlan({ module: sample.module, steps: sample.steps, name: sample.name });
+    const st = toscaStats(plan, sample.steps.length);
     const prev = el("details", { class: "raw", style: "margin-top:10px" }, [
-      el("summary", { text: "Preview the reading on " + sample.tcid + " \u2014 " +
-        sample.steps.length + " steps become " + total + " TestStepValues" })
+      el("summary", { text: "Preview the reading on " + sample.tcid + " \u2014 " + st.written +
+        " written steps become " + st.steps + " TestSteps and " + st.lines + " TestStepValues" })
     ]);
-    const tw = el("div", { class: "tablewrap", style: "margin-top:8px" });
-    const t = el("table", { class: "steps" });
-    t.appendChild(el("thead", {}, el("tr", {}, ["#", "Written step", "Control", "ActionMode", "Value"].map(h =>
-      el("th", { text: h })))));
-    const tb = el("tbody");
-    per.forEach(x => x.values.forEach((v, j) => tb.appendChild(el("tr", {}, [
-      el("td", { class: "id", text: j === 0 ? String(x.n) : "" }),
-      el("td", { class: "small", text: j === 0 ? clean(x.action).slice(0, 64) : "" }),
-      el("td", { text: v.control || "\u2014" }),
-      el("td", {}, el("span", { class: "chip mono", text: v.mode })),
-      el("td", { class: "small", text: v.value || "\u2014" })
-    ]))));
-    t.appendChild(tb); tw.appendChild(t); prev.appendChild(tw);
+    prev.appendChild(el("p", { class: "small", text:
+      "One written sentence usually fills several fields on one screen, so the reading is longer than the case. This is what every case in the batch will look like." }));
+    prev.appendChild(toscaTable(plan, false));
     go.appendChild(prev);
   }
 

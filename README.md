@@ -408,29 +408,52 @@ rather than naming a file it was not going to write.
 **The copy is not the conversion.** Every field and every step is carried over word for
 word, so in Review a converted case looks exactly like the case you started with — and the
 card says so: *carried over whole, nothing on this card was written by the tool*. The
-conversion is what sits underneath it: **the Tosca reading**, which turns each step's prose
-into module, control, ActionMode and value.
+conversion is what sits underneath it: **the Tosca reading**.
 
-That reading is open by default on a converted card, and the Convert stage previews it on a
-real case before you commit a batch, because it is the only part worth reviewing. Edit a
-step and the reading follows it. Where a step names no field, button or screen, the line
-says so rather than inventing one.
+### Why the reading is longer than the case
 
-| Written step | Control | ActionMode | Value |
-|---|---|---|---|
-| Die ISBN 978-3-16-148410-0 eingeben und bestätigen | ISBN | Input | 978-3-16-148410-0 |
-| *(its expected result)* | Treffer | Verify | — |
+Tosca is three levels. A TestCase holds **TestSteps**; a TestStep is one **Module**, which
+for SAP GUI means one screen; a **TestStepValue** is one control on that screen, with an
+ActionMode of Input, Verify, Select, Buffer or WaitOn.
 
-Reading German prose into four columns is where this earns or loses its keep, so three
-things it used to get wrong are worth naming. The keyword patterns need to be
-case-insensitive to catch both *Feld* and *feld*, and that insensitivity also let a
-lowercase word stand as a control — *Eingabefeld angezeigt* handed back `angezeigt`, and
-*Schaltfläche Katalogsuche anklicken und* handed back all three words. A control is now the
-capitalised run only. An identifier is one value, so `978-3-16-148410-0` no longer arrives
-as `978`. And quantifiers are not controls: *Genau ein Treffer* gives `Treffer`.
+A manual step is none of those. It is a sentence for a person, and one sentence routinely
+crosses a screen and fills four fields. So the reading has to **expand**, not translate:
 
-Cases already converted are counted separately and cannot be taken twice, five hundred go
-over in one batch, and one undo puts it all back. A single case converts from its drawer.
+| A manual SAP case says | Tosca needs |
+|---|---|
+| "Transaktion VA01 aufrufen" | a TestStep of its own with `OKCODE = /nVA01` — Tosca does not call transactions |
+| "Auftragsart TA, Verkaufsorganisation 1000, Vertriebsweg 10 und Sparte 00 eingeben" | four Input lines on one screen, then the Enter |
+| "…erfassen und sichern" | the fields, then Save as its own line |
+| "Die Statusleiste nennt die vergebene Belegnummer" | a Verify **and** a Buffer — a person remembers the number, Tosca does not |
+| "ein gültiger Kunde" | a value, or a TestCase-Design reference |
+
+On the sample's `SAP-101` that is **4 written steps → 4 TestSteps and 14 TestStepValues**.
+
+Screens come from the wording itself: the expected result of one step names the screen the
+next step works on — *"Das Übersichtsbild wird angezeigt"* is where step four happens — and
+that is the only screen boundary a manual case ever states. German names its screens in one
+word, so `Einstiegsbild`, `Suchmaske` and `Startseite` come through whole, without the
+article in front of them.
+
+A step the whole archive repeats is not copied into every case. The 82% opening step
+becomes `TSB_Bibliothekssystem_Anmelden`, referenced as a **reusable block** — which is
+what the convention detection was finding all along without knowing it.
+
+### The limit, stated plainly
+
+**A runnable Tosca case cannot be generated from a manual one.** `Auftragsart` is the German
+label a person reads; Tosca needs the **ModuleAttribute**, which only exists once somebody
+scans that screen with Tosca's SAP engine. No amount of reading prose produces it.
+
+What the export gives instead is a skeleton that is structurally right: the correct number
+of TestSteps, split by screen, with the correct ActionModes, controls named as your wording
+names them, and a **ModuleAttribute column left deliberately empty** for the automation
+engineer to bind after the scan. The structuring is the tedious part, and that is the part
+that is automated. Lines the sentence could not resolve are marked `<?>` rather than
+invented.
+
+The column names themselves stay provisional until a real Tosca export is available to
+check them against; the reading below them does not depend on that.
 
 ## Carrying manual cases over to Tosca
 
