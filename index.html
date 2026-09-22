@@ -224,6 +224,19 @@ td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:ri
 .bar{width:54px; height:5px; border-radius:3px; background:var(--surface-2); overflow:hidden; flex:none}
 .bar>i{display:block; height:100%; background:var(--accent)}
 
+/* the criteria, with what the archive already has to say about each */
+.acev{margin-top:10px; padding-top:9px; border-top:1px dashed var(--line)}
+.acev h4{margin:0 0 7px; font-weight:600; color:var(--muted)}
+.acrow{
+  display:flex; flex-wrap:wrap; gap:6px 9px; align-items:center;
+  padding:6px 9px; border-radius:6px; font-size:12.5px; border:1px solid transparent;
+}
+.acrow+.acrow{margin-top:4px}
+.acrow.strong{border-color:var(--warn-line, var(--line)); background:var(--warn-soft, var(--surface-2))}
+.acrow.linked{border-color:var(--good); background:var(--good-soft, var(--surface-2))}
+.acrow .actext{flex:1 1 220px; min-width:0}
+.acrow .evstep{flex:1 1 100%; color:var(--faint); font-style:italic}
+
 .draft{background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden}
 .draft.approved{border-color:var(--good)}
 .draft.rejected{opacity:.55}
@@ -1450,6 +1463,76 @@ function scoreMatch(req, tc) {
   return Math.min(1, score);
 }
 
+/* ---- what the archive already says about one criterion ------------------ */
+/* A criterion is one sentence; an archived case is a document. Scoring the
+   sentence against the whole document punishes it for being short, so the
+   comparison here is sentence to sentence: the criterion against each archived
+   STEP.
+
+   Even then the number decides nothing on its own. Measured across the sample
+   projects the closest step lands anywhere between 0% and 47%, with no gap
+   separating a real hit from a coincidence — and on an archive of thousands
+   every criterion finds something, simply because there is more to find. So
+   this reports EVIDENCE, never a verdict: the closest step, the case it sits
+   in, and whether it stands clear of the field. A person reads one sentence
+   and decides in two seconds; the tool does not decide for them. */
+const EV_FLOOR = 0.18;      // under this, nothing worth a person's attention
+const EV_STANDOUT = 1.8;    // how far the best must clear the field it came from,
+                            // which keeps the rule honest at 11 cases and at 8,000
+function acEvidence(req, acIndex) {
+  const ac = req.ac[acIndex];
+  if (!ac) return null;
+  const at = tokenize(ac.text);
+  if (!at.length) return null;
+  const per = [];
+  S.archive.forEach(c => {
+    let bs = 0, bstep = null;
+    (c.steps || []).forEach(st => {
+      const sc = cosine(at, tokenize(st.action + " " + st.expected));
+      if (sc > bs) { bs = sc; bstep = st; }
+    });
+    if (bs > 0) per.push({ tc: c, score: bs, step: bstep });
+  });
+  if (!per.length) return null;
+  per.sort((a, b) => b.score - a.score);
+  const field = per.slice(1, 10).map(x => x.score);
+  const median = field.length ? field[Math.floor(field.length / 2)] : 0;
+  const best = per[0];
+  return {
+    tc: best.tc, step: best.step,
+    score: Math.round(best.score * 100),
+    field: Math.round(median * 100),
+    strong: best.score >= EV_FLOOR && (!median || best.score >= EV_STANDOUT * median)
+  };
+}
+
+/* A criterion already tested does not need a new case written for it. Linking
+   the existing one records that as coverage — the same carry-over the Convert
+   stage performs, pinned to the criterion it answers. */
+const linkedFor = (reqKey, acLabel) =>
+  S.drafts.find(d => d.requirement === reqKey && d.acRef === acLabel && fromArchive(d)) || null;
+
+function coverWithArchive(reqKey, acLabel, tcid) {
+  const c = S.archive.find(x => x.tcid === tcid);
+  if (!c) return;
+  pushUndo("linking " + tcid + " to " + acLabel);
+  const d = draftFromArchiveCase(c);
+  d.requirement = reqKey;
+  d.acRef = acLabel;
+  d.review = "approved";          // it is a case that already exists and already passed review
+  S.drafts.push(d);
+  flagDuplicates();
+  save(); renderAll();
+  toast(tcid + " now covers " + acLabel + " \u2014 no new case forged for it.");
+}
+function unlinkCoverage(reqKey, acLabel) {
+  const d = linkedFor(reqKey, acLabel);
+  if (!d) return;
+  pushUndo("unlinking " + acLabel);
+  S.drafts = S.drafts.filter(x => x !== d);
+  save(); renderAll();
+}
+
 function matchesFor(req, limit) {
   const ck = req.key + "|" + (limit || 5);
   if (MATCH_CACHE.has(ck)) return MATCH_CACHE.get(ck);
@@ -2043,7 +2126,12 @@ function generateFor(req) {
     // a Gherkin block reads best when the When clause names the case
     const titleSrc = ac.gherkin && step.action ? step.action : ac.text;
 
-    if (S.gen.positive) {
+    // An existing case linked to this criterion already is the positive path.
+    // The negative and boundary checks below are a different question and are
+    // still forged — that is what "generate the missing coverage" means.
+    const linked = linkedFor(req.key, acLabel);
+
+    if (S.gen.positive && !linked) {
       out.push(newDraft(Object.assign({}, base, {
         name: nameOf(shortTitle(titleSrc), "Positive"),
         type: pickType(conv, "positive", lang),
@@ -4197,6 +4285,44 @@ function viewMatch(p) {
       ]);
       body.appendChild(row);
     });
+
+    /* What the archive already says about each criterion, before a single case
+       is forged. The closest archived step is shown whether or not it is close
+       enough to act on, because "nothing here is near this" is an answer too. */
+    if (r.ac.length) {
+      const acBox = el("div", { class: "acev" }, el("h4", { class: "small",
+        text: "What the archive already covers \u2014 closest archived step per criterion" }));
+      r.ac.forEach((ac, i) => {
+        const label = "AC" + (i + 1);
+        const ev = acEvidence(r, i);
+        const link = linkedFor(r.key, label);
+        const row = el("div", { class: "acrow" + (link ? " linked" : ev && ev.strong ? " strong" : "") }, [
+          el("span", { class: "chip mono", text: label }),
+          el("span", { class: "actext", text: clean(ac.text) })
+        ]);
+        if (link) {
+          row.appendChild(el("span", { class: "chip good", text: "covered by " + link.templateId }));
+          row.appendChild(el("button", { class: "ghost small", type: "button",
+            onclick: () => unlinkCoverage(r.key, label) }, "Unlink"));
+        } else if (!ev) {
+          row.appendChild(el("span", { class: "small", style: "color:var(--faint)", text: "no archived step shares any wording with this" }));
+        } else {
+          row.appendChild(el("span", { class: "chip" + (ev.strong ? " warn" : ""), title:
+            "The closest archived step scores " + ev.score + "%. The next nine average " + ev.field +
+            "%. A score has to clear the field it came from to mean anything, which is why this is evidence and not a verdict.",
+            text: ev.tc.tcid + " \u00b7 " + ev.score + "%" }));
+          row.appendChild(el("span", { class: "small evstep", text: "\u201c" + clean(ev.step.expected || ev.step.action) + "\u201d" }));
+          if (ev.strong) row.appendChild(el("button", { class: "ghost small", type: "button",
+            title: "Link " + ev.tc.tcid + " to " + label + " instead of forging a new positive case",
+            onclick: () => coverWithArchive(r.key, label, ev.tc.tcid) }, "Cover with " + ev.tc.tcid));
+          else row.appendChild(el("span", { class: "small", style: "color:var(--faint)",
+            text: "not clear of the field \u2014 read it, then decide" }));
+        }
+        acBox.appendChild(row);
+      });
+      body.appendChild(acBox);
+    }
+
     card.appendChild(body);
     p.appendChild(card);
   });

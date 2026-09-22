@@ -467,6 +467,38 @@ invented.
 The column names themselves stay provisional until a real Tosca export is available to
 check them against; the reading below them does not depend on that.
 
+## What the archive already covers
+
+Before a single case is forged, the Match stage asks the archive a question it
+was never asked before: **is this acceptance criterion already tested?**
+
+The comparison is sentence to sentence — the criterion against each archived
+*step*, not against the whole case. Scoring one sentence against a document
+punishes it for being short; measured on the sample projects, criterion-vs-case
+runs 3–22% while criterion-vs-step spreads 0–47%, and the high end is where the
+real hits are.
+
+Even so, **the number decides nothing on its own.** There is no gap in that
+distribution separating a genuine hit from a coincidence, and on an archive of
+thousands every criterion finds *something* simply because there is more to
+find. So the panel reports evidence, never a verdict:
+
+- the closest archived step, quoted, with the case it sits in
+- its score, and the average of the next nine — a score has to clear the field
+  it came from to mean anything
+- **Cover with TF-207** only where it does clear that field
+
+On the library sample that marks 2 of 10 criteria, and both are genuine. On the
+SAP sample it marks none, which is also correct — those requirements are not
+covered by those seven cases. A criterion with nothing near it says so plainly
+rather than showing a weak match dressed up as a finding.
+
+Linking an existing case to a criterion records it as coverage and **stops the
+forge writing a positive case for it**. The negative and boundary checks are a
+different question and are still generated — that is what *generate the missing
+coverage* means here. The link survives regeneration, and the Coverage stage
+stops counting that criterion as a gap.
+
 ## Carrying manual cases over to Tosca
 
 A manual case that already exists in qTest does not need a requirement to be automated. On
